@@ -1,8 +1,26 @@
 # hale-bopp-db
 
+[![CI](https://github.com/hale-bopp-data/hale-bopp-db/actions/workflows/ci.yml/badge.svg)](https://github.com/hale-bopp-data/hale-bopp-db/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org)
+
 Deterministic schema governance engine for PostgreSQL.
 
 Diff, deploy, and detect drift — no AI, no magic, just reliable mechanics.
+
+## Architecture
+
+```
+  ┌─────────────┐         ┌──────────────────┐         ┌──────────────┐
+  │ Desired     │         │   hale-bopp-db   │         │  PostgreSQL  │
+  │ Schema JSON │────────►│                  │────────►│  Database    │
+  └─────────────┘  diff   │  :8100           │ deploy  └──────────────┘
+                          │                  │◄────────
+                          │                  │  drift    ┌──────────────┐
+                          │                  │◄────────  │  Baseline    │
+                          └──────────────────┘  check   │  Snapshot    │
+                                                        └──────────────┘
+```
 
 ## Features
 
@@ -11,16 +29,19 @@ Diff, deploy, and detect drift — no AI, no magic, just reliable mechanics.
 - **Drift Detection**: Detect unauthorized schema modifications vs baseline
 - **CLI**: `halebopp diff`, `halebopp deploy`, `halebopp drift`, `halebopp snapshot`
 - **REST API**: FastAPI endpoints for integration with orchestration tools
+- **Risk Assessment**: Every change gets a risk level (low/medium/high/critical)
 
 ## Quick Start
 
 ```bash
-# Docker Compose (includes PostgreSQL 16)
-docker compose up
+# Install
+pip install -e .
 
-# Or install locally
-pip install -r requirements.txt
+# Start the API server
 uvicorn app.main:app --host 0.0.0.0 --port 8100
+
+# Or use Docker Compose (includes PostgreSQL 16)
+docker compose up
 ```
 
 ## API Endpoints
@@ -48,13 +69,23 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
+17 tests covering diff engine, deploy logic, drift detection, CLI, and API endpoints.
+
 ## Part of HALE-BOPP
 
-HALE-BOPP is an open-source ecosystem of deterministic data governance engines:
+HALE-BOPP is an open-source ecosystem of deterministic data engines — the "muscles" that do the heavy lifting, no AI required.
 
-- **hale-bopp-db** (this repo) — Schema governance
-- [hale-bopp-etl](https://github.com/hale-bopp-data/hale-bopp-etl) — Data orchestration
-- [hale-bopp-argos](https://github.com/hale-bopp-data/hale-bopp-argos) — Policy gating
+```
+  ┌──────────┐     event      ┌──────────┐     gate      ┌──────────┐
+  │ DB :8100 │ ─────────────► │ETL :3001 │ ◄──────────── │ARGOS:8200│
+  │ schema   │                │ pipeline │               │ policy   │
+  │ govern.  │                │ runner   │               │ gating   │
+  └──────────┘                └──────────┘               └──────────┘
+```
+
+- **hale-bopp-db** (this repo) — Schema governance for PostgreSQL
+- [hale-bopp-etl](https://github.com/hale-bopp-data/hale-bopp-etl) — Config-driven data orchestration
+- [hale-bopp-argos](https://github.com/hale-bopp-data/hale-bopp-argos) — Policy gating and quality checks
 
 ## License
 
