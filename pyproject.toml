@@ -6,8 +6,26 @@ build-backend = "setuptools.build_meta"
 name = "hale-bopp-db"
 version = "0.1.0"
 description = "Deterministic schema governance engine for PostgreSQL"
+readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+authors = [
+    {name = "EasyWay Data", email = "info@easyway-data.com"},
+]
+keywords = ["postgresql", "schema", "governance", "migration", "drift-detection", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries",
+    "Typing :: Typed",
+]
 dependencies = [
     "sqlalchemy>=2.0",
     "psycopg2-binary>=2.9",
@@ -17,10 +35,18 @@ dependencies = [
 
 [project.optional-dependencies]
 api = ["fastapi>=0.115", "uvicorn[standard]>=0.32", "httpx>=0.28"]
-dev = ["pytest>=8.0", "httpx>=0.28"]
+dev = ["pytest>=8.0", "httpx>=0.28", "build>=1.0"]
+
+[project.urls]
+Homepage = "https://github.com/hale-bopp-data/hale-bopp-db"
+Repository = "https://github.com/hale-bopp-data/hale-bopp-db"
+Issues = "https://github.com/hale-bopp-data/hale-bopp-db/issues"
 
 [project.scripts]
-halebopp = "app.cli:cli"
+halebopp = "hale_bopp_db.cli:cli"
+
+[tool.setuptools.packages.find]
+include = ["hale_bopp_db*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

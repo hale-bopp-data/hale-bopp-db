@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app.main import app
+from hale_bopp_db.main import app
 
 client = TestClient(app)
 
@@ -17,7 +17,7 @@ def test_health():
     assert "version" in data
 
 
-@patch("app.api.routes.introspect_schema")
+@patch("hale_bopp_db.api.routes.introspect_schema")
 def test_schema_diff_add_table(mock_introspect):
     mock_introspect.return_value = {"tables": {}}
 
@@ -43,7 +43,7 @@ def test_schema_diff_add_table(mock_introspect):
     assert data["risk_level"] == "low"
 
 
-@patch("app.api.routes.deploy_changes")
+@patch("hale_bopp_db.api.routes.deploy_changes")
 def test_schema_deploy_dry_run(mock_deploy):
     mock_deploy.return_value = ([], "-- rollback")
 

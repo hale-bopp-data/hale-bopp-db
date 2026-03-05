@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from app.cli import cli
+from hale_bopp_db.cli import cli
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def test_version(runner):
     assert "0.1.0" in result.output
 
 
-@patch("app.cli.introspect_schema")
+@patch("hale_bopp_db.cli.introspect_schema")
 def test_diff_no_changes(mock_introspect, runner, desired_schema):
     mock_introspect.return_value = json.loads(open(desired_schema).read())
     result = runner.invoke(cli, ["diff", "-c", "postgresql://fake@localhost/db", "-d", desired_schema])
@@ -47,7 +47,7 @@ def test_diff_no_changes(mock_introspect, runner, desired_schema):
     assert "No changes" in result.output
 
 
-@patch("app.cli.introspect_schema")
+@patch("hale_bopp_db.cli.introspect_schema")
 def test_diff_with_changes(mock_introspect, runner, desired_schema):
     mock_introspect.return_value = {"tables": {}}  # empty DB
     result = runner.invoke(cli, ["diff", "-c", "postgresql://fake@localhost/db", "-d", desired_schema])
@@ -55,7 +55,7 @@ def test_diff_with_changes(mock_introspect, runner, desired_schema):
     assert "add_table" in result.output
 
 
-@patch("app.cli.introspect_schema")
+@patch("hale_bopp_db.cli.introspect_schema")
 def test_diff_json_output(mock_introspect, runner, desired_schema):
     mock_introspect.return_value = {"tables": {}}
     result = runner.invoke(cli, ["diff", "-c", "postgresql://fake@localhost/db", "-d", desired_schema, "-j"])
@@ -66,7 +66,7 @@ def test_diff_json_output(mock_introspect, runner, desired_schema):
     assert len(data["changes"]) == 1
 
 
-@patch("app.cli.deploy_changes")
+@patch("hale_bopp_db.cli.deploy_changes")
 def test_deploy_dry_run(mock_deploy, runner, tmp_path):
     changes_file = tmp_path / "changes.json"
     changes_file.write_text(json.dumps({"changes": []}))
@@ -77,7 +77,7 @@ def test_deploy_dry_run(mock_deploy, runner, tmp_path):
     assert "DRY RUN" in result.output
 
 
-@patch("app.cli.introspect_schema")
+@patch("hale_bopp_db.cli.introspect_schema")
 def test_drift_no_drift(mock_introspect, runner, desired_schema):
     mock_introspect.return_value = json.loads(open(desired_schema).read())
     result = runner.invoke(cli, ["drift", "-c", "postgresql://fake@localhost/db", "-b", desired_schema])
@@ -85,7 +85,7 @@ def test_drift_no_drift(mock_introspect, runner, desired_schema):
     assert "No drift" in result.output
 
 
-@patch("app.cli.introspect_schema")
+@patch("hale_bopp_db.cli.introspect_schema")
 def test_drift_detected(mock_introspect, runner, desired_schema):
     # Actual has extra column not in baseline
     actual = json.loads(open(desired_schema).read())
@@ -96,7 +96,7 @@ def test_drift_detected(mock_introspect, runner, desired_schema):
     assert "DRIFT DETECTED" in result.output
 
 
-@patch("app.cli.introspect_schema")
+@patch("hale_bopp_db.cli.introspect_schema")
 def test_snapshot(mock_introspect, runner, tmp_path):
     mock_introspect.return_value = {
         "tables": {"orders": {"columns": {"id": {"type": "INTEGER"}}, "indexes": {}, "primary_key": ["id"]}}
@@ -113,6 +113,6 @@ def test_snapshot(mock_introspect, runner, tmp_path):
 
 def test_connection_sanitized(runner):
     """Verify password is hidden in output."""
-    from app.cli import _sanitize_conn
+    from hale_bopp_db.cli import _sanitize_conn
     assert "***" in _sanitize_conn("postgresql://user:secret@localhost/db")
     assert "secret" not in _sanitize_conn("postgresql://user:secret@localhost/db")
