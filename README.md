@@ -31,14 +31,33 @@ Diff, deploy, and detect drift — no AI, no magic, just reliable mechanics.
 - **REST API**: FastAPI endpoints for integration with orchestration tools
 - **Risk Assessment**: Every change gets a risk level (low/medium/high/critical)
 
+## Installation
+
+```bash
+# From PyPI (when published)
+pip install hale-bopp-db
+
+# From source
+pip install git+https://github.com/hale-bopp-data/hale-bopp-db.git
+
+# With REST API support
+pip install hale-bopp-db[api]
+
+# Development
+git clone https://github.com/hale-bopp-data/hale-bopp-db.git
+cd hale-bopp-db
+pip install -e ".[dev,api]"
+```
+
 ## Quick Start
 
 ```bash
-# Install
-pip install -e .
+# Use the CLI
+halebopp snapshot --connection postgresql://user:pass@localhost/mydb -o baseline.json
+halebopp diff --connection postgresql://user:pass@localhost/mydb --desired schema.json
 
 # Start the API server
-uvicorn app.main:app --host 0.0.0.0 --port 8100
+uvicorn hale_bopp_db.main:app --host 0.0.0.0 --port 8100
 
 # Or use Docker Compose (includes PostgreSQL 16)
 docker compose up
@@ -65,7 +84,7 @@ halebopp snapshot --connection <conn> -o baseline.json
 ## Testing
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev,api]"
 pytest tests/ -v
 ```
 

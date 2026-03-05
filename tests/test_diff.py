@@ -1,7 +1,7 @@
 """Tests for the schema diff engine."""
 
-from app.core.diff import compute_diff
-from app.models.schemas import ChangeType, RiskLevel
+from hale_bopp_db.core.diff import compute_diff
+from hale_bopp_db.models.schemas import ChangeType, RiskLevel
 
 
 def test_add_new_table():
