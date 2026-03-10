@@ -10,7 +10,7 @@ from pathlib import Path
 
 from sqlalchemy import create_engine, text
 
-from app.models.schemas import SchemaChange
+from hale_bopp_db.models.schemas import SchemaChange
 
 AUDIT_LOG_PATH = os.environ.get("HALEBOPP_AUDIT_LOG", "halebopp-audit.jsonl")
 

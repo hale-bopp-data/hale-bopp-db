@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.models.schemas import ChangeType, RiskLevel, SchemaChange
+from hale_bopp_db.models.schemas import ChangeType, RiskLevel, SchemaChange
 
 
 def compute_diff(actual: dict[str, Any], desired: dict[str, Any]) -> tuple[list[SchemaChange], RiskLevel]:
