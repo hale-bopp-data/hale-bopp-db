@@ -1,0 +1,21 @@
+# GitHub → ADO Mirror (Circle 1: GitHub primary, ADO read-only)
+# Requires repository secret: ADO_PAT (Azure DevOps PAT with Code Read+Write)
+# GEDI: G16 Presa Elettrica — standard interface, automated sync
+name: ADO Mirror
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Azure DevOps
+        run: |
+          git remote add ado https://EasyWayData:${{ secrets.ADO_PAT }}@dev.azure.com/EasyWayData/EasyWay-DataPortal/_git/${{ github.event.repository.name }}
+          git push ado main --force
