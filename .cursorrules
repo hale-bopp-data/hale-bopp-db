@@ -1,0 +1,66 @@
+# HALE-BOPP — Cursor/AI Agent Rules
+# "Su HALE-BOPP puntiamo sempre in alto e non dobbiamo essere paurosi."
+# Deterministic data tools. No AI inside. Pure mechanics.
+
+# Project Identity
+# HALE-BOPP is an open-source (Apache 2.0) suite of deterministic data tools:
+#   - hale-bopp-db:    Schema governance engine (PostgreSQL)
+#   - hale-bopp-etl:   Config-driven data orchestration (YAML pipelines)
+#   - hale-bopp-argos: Policy gating & data quality engine
+# Org: https://github.com/hale-bopp-data
+
+# Language & Stack
+# Python 3.10+, FastAPI, PostgreSQL, Docker Compose
+# No AI/ML dependencies inside the tools — deterministic by design
+
+# Repository Structure
+# This is a monorepo with 3 independent modules:
+#   db/    — hale-bopp-db    (port 8100)
+#   etl/   — hale-bopp-etl   (port 3001 webhook, watcher)
+#   argos/ — hale-bopp-argos (port 8200)
+#   docs/  — shared documentation
+# Each module has its own pyproject.toml, Dockerfile, tests/, CI workflow
+
+# Branch Strategy
+# 2-tier: feat→main (no develop branch)
+# Branch prefixes: feat/, fix/, docs/, test/, refactor/, chore/
+# Commit convention: Conventional Commits — type(scope): description
+#   Types: feat, fix, docs, test, refactor, chore
+#   Scopes: db, etl, argos, docs, ci
+
+# PR Rules
+# - All PRs target `main`
+# - Tests must pass (CI runs pytest on every PR)
+# - No hardcoded values (connection strings, passwords, paths)
+# - PR description explains WHY, not just WHAT
+# - Reference issue number if applicable
+
+# Code Style
+# - Follow existing patterns — read the code before writing new code
+# - Type hints on public functions
+# - Docstrings on public API (modules, classes, public functions)
+# - pytest for testing — meaningful coverage, not vanity metrics
+# - Config via environment variables or YAML, never hardcoded
+
+# Security
+# - Hardcoded secrets = immediate revert
+# - Connection strings via DATABASE_URL env var
+# - Docker: pin versions, least privilege, no root
+# - Secrets scan runs on every PR (GitHub Actions)
+
+# API Contracts
+# The 3 modules communicate via a Universal Event Schema.
+# See API_CONTRACTS.md for the contract that ties them together.
+# Breaking changes to the event schema require updating ALL 3 modules.
+
+# Testing
+# Each module runs independently:
+#   cd db && pytest tests/ -v
+#   cd etl && pytest tests/ -v
+#   cd argos && pytest tests/ -v
+# db tests require PostgreSQL (Docker Compose or CI service container)
+
+# Philosophy
+# "Muscles" — deterministic, no AI, pure mechanics.
+# The tools do exactly what you tell them, nothing more.
+# Reliability over cleverness. Simplicity over features.
