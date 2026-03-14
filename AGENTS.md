@@ -1,102 +1,108 @@
 ---
-title: "AGENTS.md — hale-bopp"
-tags: [hale-bopp, open-source, agents]
+title: "Agents Master"
+tags: []
 ---
 
-# AGENTS.md — hale-bopp
+# AGENTS.md — hale-bopp-db
 
-Instructions for AI agents (Claude Code, Copilot, Codex, Cursor, etc.)
-working in this repository.
+Istruzioni operative per agenti AI (Codex, Claude Code, Copilot Workspace, ecc.)
+che lavorano in questo repository.
 
-## Identity
+---
 
-**hale-bopp** — Open-source deterministic data tools (Apache 2.0)
-- Org: `hale-bopp-data` on GitHub
-- Branch strategy: `feat→main` (2-tier, no develop)
-- Merge strategy: merge commit (no squash)
-- Language: Python 3.10+
-- CI: GitHub Actions (pytest on every PR)
+## Identita
 
-## Modules
+**hale-bopp-db** — Schema Governance Engine for PostgreSQL
+- Remote primario: Azure DevOps (`dev.azure.com/EasyWayData`). PR, branch, CI/CD: TUTTO su ADO.
+- GitHub (`hale-bopp-data/hale-bopp-db`): mirror pubblico per community.
+- Branch strategy: `feat→main` (NO develop)
+- Merge strategy: Merge (no fast-forward)
+- Linguaggi: Python 3.11, SQL, Docker
+- **Container**: `halebopp-db`
+- **Tests**: 17
 
-| Module | Port | What it does |
-|---|---|---|
-| `db/` (hale-bopp-db) | 8100 | Schema governance: diff, deploy, drift detection |
-| `etl/` (hale-bopp-etl) | 3001 | Config-driven data orchestration (YAML pipelines) |
-| `argos/` (hale-bopp-argos) | 8200 | Policy gating & data quality engine |
+---
 
-Each module is independent: own `pyproject.toml`, `Dockerfile`, `tests/`, `CI workflow`.
-
-## Quick Commands
+## Comandi rapidi
 
 ```bash
-# Run tests (per module)
-cd db && pytest tests/ -v
-cd etl && pytest tests/ -v
-cd argos && pytest tests/ -v
+# Commit con Iron Dome
+ewctl commit
 
-# Run with Docker Compose (per module)
-cd db && docker compose up
-cd etl && docker compose up
-cd argos && docker compose up
+pytest app/tests/
 
-# Install from source (per module)
-cd db && pip install -e ".[dev,api]"
-cd etl && pip install -e .
-cd argos && pip install -e .
+
+docker compose up -d
+
+
+python -m app.cli diff
 ```
 
-## Branch & Commit Convention
+## Struttura directory
 
+```text
+app/
+  cli.py             # CLI entry point
+  core/              # Schema diff engine
+  models/            # Data models
+  api/               # REST API
+dist/                # Distribution artifacts
+docs/                # Documentation
+docker-compose.yml   # Dev environment
+Dockerfile           # Container image
 ```
-Branch:  feat/description, fix/description, docs/description
-Commit:  type(scope): description
-Types:   feat, fix, docs, test, refactor, chore
-Scopes:  db, etl, argos, docs, ci
 
-Examples:
-  feat(db): add column rename support
-  fix(etl): handle missing config key gracefully
-  docs(argos): update policy profile examples
+- Motore deterministico: stesso input = stesso output
+- Test: `pytest` con coverage
+- Docker: pin versions, multi-stage build
+
+---
+
+## Connessioni & PAT
+
+- Guida completa: `C:\old\easyway\wiki\guides\connection-registry.md`
+- Gateway S88: PAT e secrets vivono SOLO su server `/opt/easyway/.env.secrets`
+- `.env.local` locale: solo OPENROUTER/QDRANT, nessun PAT
+
+### Comandi ADO — Ordine di preferenza OBBLIGATORIO (S107)
+
+**MAI usare `az login` o `az boards`**. MAI creare PR con `curl` inline o quoting improvvisato.
+
+```bash
+bash /c/old/easyway/ado/scripts/ado-remote.sh wi-create "titolo" "PBI" "tag1;tag2"
+bash /c/old/easyway/ado/scripts/ado-remote.sh pr-create <repo> <src> <tgt> "titolo" [wi_id]
+bash /c/old/easyway/ado/scripts/ado-remote.sh pr-autolink-wi <pr_id> [repo]
+bash /c/old/easyway/ado/scripts/ado-remote.sh wi-link-pr <wi_id> <pr_id> [repo]
+bash /c/old/easyway/ado/scripts/ado-remote.sh pat-health-check
 ```
 
-## PR Checklist
+**Repo names ADO**: `easyway-portal`, `easyway-wiki`, `easyway-agents`, `easyway-infra`, `easyway-ado`, `easyway-n8n`
 
-Before creating a PR, verify:
-- [ ] Tests pass locally (`pytest tests/ -v`)
-- [ ] No hardcoded values (connection strings, passwords, paths)
-- [ ] Documentation updated if API changes
-- [ ] PR description explains **why**, not just **what**
-- [ ] Branch has a valid prefix (`feat/`, `fix/`, `docs/`, etc.)
+### PR creation — metodo canonico
 
-## API Contracts
+```bash
+git push -u origin feat/nome-descrittivo
+bash /c/old/easyway/ado/scripts/ado-remote.sh pr-create hale-bopp-db feat/nome-descrittivo main "AB#NNN titolo" NNN
+bash /c/old/easyway/ado/scripts/ado-remote.sh pr-autolink-wi <pr_id> hale-bopp-db
+```
 
-The 3 modules communicate via a **Universal Event Schema** (see `API_CONTRACTS.md`).
-Breaking changes to the event schema require updating ALL 3 modules.
 
-Do NOT change event schema fields without checking consumers in the other modules.
 
-## Security Rules
+---
 
-| Rule | Detail |
-|---|---|
-| No hardcoded secrets | Connection strings via `DATABASE_URL` env var |
-| No secret defaults | Never `${PASS:-default}` — fail fast if missing |
-| Docker best practices | Pin versions, no root, least privilege |
-| Secrets scan | Runs on every PR via GitHub Actions (gitleaks) |
+## Regole assolute
 
-## Architecture Principles
+- MAI hardcodare PAT o secrets
+- MAI aprire PR senza Work Item ADO
+- MAI pushare direttamente a `main`
+- MAX 2 tentativi sulla stessa API call ADO, poi STOP
+- Se il repo ha `develop`, le feature passano da li, non vanno a `main`
+- In dubbio architetturale: consultare GEDI prima di procedere
+- Ogni capability creata/modificata DEVE essere documentata in `easyway-wiki/guides/` con: **Cosa** (tabella path), **Come** (flusso/comandi), **Perché** (decisione architetturale), **Q&A**. Senza guida wiki il lavoro è incompleto. Ref: `wiki/standards/agent-architecture-standard.md` §10
 
-This project follows the **"Muscles" philosophy**: deterministic, no AI, pure mechanics.
+---
 
-- **Reliability over cleverness** — the tools do exactly what you tell them
-- **Config over code** — behavior is driven by YAML/JSON config, not Python logic
-- **Fail fast** — if something is wrong, stop immediately with a clear error
-- **Universal Event Schema** — all modules speak the same language
-- **Zero framework lock-in** — no Airflow, no Dagster, no Celery
-
-## Related Resources
-
-- [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — community standards
-- [LICENSE](LICENSE) — Apache 2.0
+> Generato automaticamente dal Context Sync Engine (n8n workflow `context-sync`).
+> Master template: `easyway-wiki/templates/agents-master.md`
+> Override: `easyway-wiki/templates/repo-overrides.yml`
+> Ultima sincronizzazione: 2026-03-14T03:01:59.181Z
