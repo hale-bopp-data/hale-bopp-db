@@ -72,4 +72,4 @@ bash /c/old/easyway/ado/scripts/ado-remote.sh pr-create hale-bopp-db feat/nome-d
 
 ---
 > Context Sync Engine | Master: `easyway-wiki/templates/agents-master.md`
-> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-15T03:00:04Z
+> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-15T06:00:06Z
