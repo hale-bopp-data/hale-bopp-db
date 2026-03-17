@@ -17,6 +17,13 @@ tags: []
 - Remote primario: Azure DevOps (`dev.azure.com/EasyWayData`). PR, branch, CI/CD: TUTTO su ADO.
 - GitHub (`hale-bopp-data/hale-bopp-db`): mirror pubblico per community.
 
+## Layer 0 — Testuggine (dove sei, dove cerchi)
+# Briefing completo: bash infra/scripts/ops/ewctl-bootstrap.sh
+# Cache L0: ~/.easyway/l0-bootstrap.json (pre-calcolato, 0ms)
+# Repo map + regole + puntatori L1/L2/L3: tutto nel cache.
+# Se la cache non esiste o e stale, lo script la rigenera automaticamente.
+# Progressive disclosure: L0 (qui) → L1 (.cursorrules + AGENTS.md) → L2 (wiki/guides/) → L3 (chronicles + MEMORY)
+
 ## GEDI Fix — Ogni fix deve essere strutturale e antifragile (S118)
 # 1. GEDI OODA obbligatorio — Observe → Orient → Decide → Act
 # 2. STRUTTURALE: causa root, non sintomo. ANTIFRAGILE: guardrail permanente.
@@ -65,4 +72,4 @@ tags: []
 
 ---
 > Context Sync Engine | Master: `easyway-wiki/templates/cursorrules-master.md`
-> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-16T09:00:11Z
+> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-16T15:00:12Z
