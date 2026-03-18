@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from app.api.routes import router
+from hale_bopp_db.api.routes import router
 
 app = FastAPI(
     title="DB-HALE-BOPP",

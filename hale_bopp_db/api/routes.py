@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.core.deploy import deploy_changes
-from app.core.diff import compute_diff
-from app.core.introspect import introspect_schema
-from app.models.schemas import (
+from hale_bopp_db.core.deploy import deploy_changes
+from hale_bopp_db.core.diff import compute_diff
+from hale_bopp_db.core.introspect import introspect_schema
+from hale_bopp_db.models.schemas import (
     DeployRequest,
     DeployResponse,
     DiffRequest,

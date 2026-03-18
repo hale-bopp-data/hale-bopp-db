@@ -16,10 +16,10 @@ from pathlib import Path
 
 import click
 
-from app.core.deploy import deploy_changes
-from app.core.diff import compute_diff
-from app.core.introspect import introspect_schema
-from app.models.schemas import SchemaChange
+from hale_bopp_db.core.deploy import deploy_changes
+from hale_bopp_db.core.diff import compute_diff
+from hale_bopp_db.core.introspect import introspect_schema
+from hale_bopp_db.models.schemas import SchemaChange
 
 
 def _sanitize_conn(conn: str) -> str:
