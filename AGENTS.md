@@ -61,4 +61,4 @@ Dockerfile           # Container image
 
 ---
 > Context Sync Engine | Master: `easyway-wiki/templates/agents-master.md`
-> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-19T18:00:12Z
+> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-19T21:00:13Z
