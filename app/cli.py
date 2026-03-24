@@ -18,6 +18,8 @@ import click
 
 from app.core.deploy import deploy_changes
 from app.core.diff import compute_diff
+from app.core.maetel import to_json as maetel_to_json
+from app.core.maetel import to_mermaid as maetel_to_mermaid
 from app.core.introspect import introspect_schema
 from app.models.schemas import SchemaChange
 
@@ -164,6 +166,50 @@ def snapshot(connection: str, output: str):
 
     table_count = len(schema.get("tables", {}))
     click.secho(f"Snapshot saved: {out_path} ({table_count} tables)", fg="green")
+
+
+@cli.command()
+@click.option("--connection", "-c", required=True, help="PostgreSQL connection string")
+@click.option("--format", "-f", "fmt", type=click.Choice(["mermaid", "json"]), default="mermaid", help="Output format")
+@click.option("--schema", "-s", "schema_name", default=None, help="Filter by schema (e.g. platform)")
+@click.option("--output", "-o", "output_file", type=click.Path(), default=None, help="Output file path (stdout if omitted)")
+def maetel(connection: str, fmt: str, schema_name: str | None, output_file: str | None):
+    """Generate ER diagram from a live database.
+
+    Named after Maetel from Galaxy Express 999 — the guide who knows every stop.
+    """
+    click.echo(f"Connecting to {_sanitize_conn(connection)}...")
+
+    schema = introspect_schema(connection, schema=schema_name)
+
+    if fmt == "mermaid":
+        content = maetel_to_mermaid(schema, schema_name=schema_name)
+        if output_file:
+            # Wrap in markdown code block for .md files
+            if output_file.endswith(".md"):
+                content = f"```mermaid\n{content}\n```"
+    else:
+        result = maetel_to_json(schema, schema_name=schema_name)
+        content = json.dumps(result, indent=2, ensure_ascii=False)
+
+    if output_file:
+        out_path = Path(output_file)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        table_count = _count_tables(schema, schema_name)
+        click.secho(f"Maetel saved: {out_path} ({table_count} tables)", fg="green")
+    else:
+        click.echo(content)
+
+
+def _count_tables(schema: dict, schema_name: str | None) -> int:
+    """Count tables in the schema."""
+    if schema_name and "schemas" in schema:
+        data = schema["schemas"].get(schema_name, {})
+        return len(data.get("tables", {}))
+    return len(schema.get("tables", {}))
 
 
 if __name__ == "__main__":

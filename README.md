@@ -27,7 +27,8 @@ Diff, deploy, and detect drift — no AI, no magic, just reliable mechanics.
 - **Schema Diff**: Compare desired schema against actual database, get a change list with risk assessment
 - **Schema Deploy**: Apply changes transactionally with automatic rollback on error
 - **Drift Detection**: Detect unauthorized schema modifications vs baseline
-- **CLI**: `halebopp diff`, `halebopp deploy`, `halebopp drift`, `halebopp snapshot`
+- **Maetel**: ER diagram generator — Mermaid and structured JSON from live introspection
+- **CLI**: `halebopp diff`, `halebopp deploy`, `halebopp drift`, `halebopp snapshot`, `halebopp maetel`
 - **REST API**: FastAPI endpoints for integration with orchestration tools
 - **Risk Assessment**: Every change gets a risk level (low/medium/high/critical)
 
@@ -50,6 +51,7 @@ docker compose up
 |--------|------|-------------|
 | `POST` | `/api/v1/schema/diff` | Calculate schema differences + risk level |
 | `POST` | `/api/v1/schema/deploy` | Apply changes (supports dry-run) |
+| `POST` | `/api/v1/schema/maetel` | Generate ER diagram (Mermaid or JSON) |
 | `POST` | `/api/v1/drift/check` | Detect unauthorized schema drift |
 | `GET` | `/api/v1/health` | Service health check |
 
@@ -60,7 +62,10 @@ halebopp diff --connection <conn> --desired schema.json
 halebopp deploy --connection <conn> --changes changes.json [--execute]
 halebopp drift --connection <conn> --baseline baseline.json
 halebopp snapshot --connection <conn> -o baseline.json
+halebopp maetel --connection <conn> --format mermaid -o er-diagram.md
 ```
+
+> **Maetel** is named after the guide from *Galaxy Express 999* (銀河鉄道999) by Leiji Matsumoto — she knows every stop on the endless rail across the cosmos, just as this module knows every entity and relationship in your schema.
 
 ## Testing
 
