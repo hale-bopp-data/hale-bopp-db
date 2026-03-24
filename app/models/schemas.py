@@ -71,6 +71,20 @@ class DriftCheckResponse(BaseModel):
     diffs: list[SchemaChange]
 
 
+# --- Maetel ---
+
+class MaetelRequest(BaseModel):
+    connection_string: str
+    format: str = "mermaid"
+    schema_name: str | None = None
+
+
+class MaetelResponse(BaseModel):
+    format: str
+    content: str
+    stats: dict[str, Any] = Field(default_factory=dict)
+
+
 # --- Health ---
 
 class HealthResponse(BaseModel):

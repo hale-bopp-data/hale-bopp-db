@@ -6,6 +6,8 @@ from fastapi import APIRouter
 
 from app.core.deploy import deploy_changes
 from app.core.diff import compute_diff
+from app.core.maetel import to_json as maetel_to_json
+from app.core.maetel import to_mermaid as maetel_to_mermaid
 from app.core.introspect import introspect_schema
 from app.models.schemas import (
     DeployRequest,
@@ -14,6 +16,8 @@ from app.models.schemas import (
     DiffResponse,
     DriftCheckRequest,
     DriftCheckResponse,
+    MaetelRequest,
+    MaetelResponse,
     HealthResponse,
 )
 
@@ -47,6 +51,24 @@ def drift_check(req: DriftCheckRequest):
     # Invert: if actual has things not in baseline, that's drift
     # For now, any diff = drift
     return DriftCheckResponse(drifted=len(diffs) > 0, diffs=diffs)
+
+
+@router.post("/schema/maetel", response_model=MaetelResponse)
+def schema_maetel(req: MaetelRequest):
+    """Generate ER diagram from a live database.
+
+    Named after Maetel from Galaxy Express 999 — the guide who knows every stop.
+    """
+    schema = introspect_schema(req.connection_string, schema=req.schema_name)
+    if req.format == "json":
+        result = maetel_to_json(schema, schema_name=req.schema_name)
+        import json
+        content = json.dumps(result, indent=2, ensure_ascii=False)
+        stats = result.get("stats", {})
+    else:
+        content = maetel_to_mermaid(schema, schema_name=req.schema_name)
+        stats = {"line_count": len(content.splitlines())}
+    return MaetelResponse(format=req.format, content=content, stats=stats)
 
 
 @router.get("/health", response_model=HealthResponse)
