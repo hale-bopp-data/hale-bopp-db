@@ -1,0 +1,261 @@
+# Iron Dome — Configuration & Pattern Registry
+# https://github.com/hale-bopp-data/iron-dome
+#
+# This is the default configuration. Copy to your repo root and customize.
+# Per-repo overrides: create .iron-dome.yml in your repo root.
+#
+# Schema v2.0.0
+
+version: "2.0.0"
+
+# =============================================================================
+# PRE-COMMIT GUARDS
+# =============================================================================
+
+guards:
+
+  # --- Secrets Scan (BLOCKING) ---
+  # Detects hardcoded secrets in staged files using regex patterns.
+  # The Dumb Guard: no AI, no LLM — pure pattern matching.
+  secrets:
+    enabled: true
+    severity: blocking
+    critical_patterns:
+      - name: "Private Key"
+        pattern: '-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----'
+        severity: critical
+
+      - name: "GitHub PAT"
+        pattern: 'ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{60,}'
+        severity: critical
+
+      - name: "GitLab Token"
+        pattern: 'glpat-[A-Za-z0-9\-_]{20,}'
+        severity: critical
+
+      - name: "AWS Access Key"
+        pattern: 'AKIA[0-9A-Z]{16}'
+        severity: critical
+
+      - name: "AWS Secret Key"
+        pattern: '(?i)aws_secret_access_key\s*[:=]\s*[A-Za-z0-9/+=]{40}'
+        severity: critical
+
+      - name: "Azure Connection String"
+        pattern: '(?i)DefaultEndpointsProtocol=https?;AccountName=[^;]+;AccountKey=[A-Za-z0-9+/=]{40,}'
+        severity: critical
+
+      - name: "OpenAI / OpenRouter Key"
+        pattern: 'sk-[a-zA-Z0-9]{20,}'
+        severity: critical
+
+      - name: "Hardcoded Password"
+        pattern: '(?i)(password|passwd|pwd)\s*[:=]\s*["''][^"''$]{8,}["'']'
+        severity: high
+
+      - name: "Generic API Key Assignment"
+        pattern: '(?i)(api[_-]?key|apikey|api[_-]?secret)\s*[:=]\s*["''][A-Za-z0-9\-_]{20,}["'']'
+        severity: high
+
+      - name: "Bearer Token Hardcoded"
+        pattern: '(?i)bearer\s+[A-Za-z0-9\-_\.]{20,}'
+        severity: high
+
+      - name: "Generic Secret Assignment"
+        pattern: '(?i)(secret|token|credential)\s*[:=]\s*["''][A-Za-z0-9\-_/+=]{20,}["'']'
+        severity: high
+
+    # Lines matching ANY safe pattern are skipped (false positive suppression)
+    safe_patterns:
+      - '\$\{[A-Z_]+\}'           # ${ENV_VAR}
+      - '\$env:[A-Z_]+'           # $env:VAR (PowerShell)
+      - 'process\.env\.'          # process.env.VAR (Node.js)
+      - 'os\.environ'             # os.environ (Python)
+      - 'System\.getenv'          # Java
+      - 'env\(\s*["\x27]'         # env("VAR") — various frameworks
+      - 'ChangeMe'
+      - 'placeholder'
+      - 'example'
+      - '<REDACTED>'
+      - '<PASTE_'
+      - 'UNKNOWN_PLEASE'
+      - 'your[_-]?api[_-]?key'
+      - 'xxx+'
+      - '\.env\.example'
+
+  # --- Conflict Markers (BLOCKING) ---
+  # Blocks commits containing unresolved merge conflict markers.
+  conflict_markers:
+    enabled: true
+    severity: blocking
+
+  # --- Docker Run Guard (BLOCKING) ---
+  # Enforces "compose only" policy — blocks docker run in scripts.
+  docker_run:
+    enabled: true
+    severity: blocking
+    file_types: ["*.sh", "*.bash", "*.ps1", "*.psm1", "*.py", "*.yml", "*.yaml"]
+    message: "Use 'docker compose' instead. All containers should be managed via compose."
+
+  # --- Large File Guard (BLOCKING) ---
+  # Blocks commits of files exceeding a size threshold.
+  large_file:
+    enabled: true
+    severity: blocking
+    max_size_kb: 1024  # 1MB default
+    exclude: ["*.lock", "package-lock.json", "yarn.lock"]
+
+  # --- Sensitive File Guard (BLOCKING) ---
+  # Blocks commits of files with dangerous filenames (not just content).
+  sensitive_files:
+    enabled: true
+    severity: blocking
+    patterns:
+      - ".env"
+      - ".env.local"
+      - ".env.production"
+      - "*.pem"
+      - "*.key"
+      - "*.pfx"
+      - "*.p12"
+      - "id_rsa*"
+      - "id_ed25519*"
+      - "credentials.json"
+      - "service-account*.json"
+      - "*.keystore"
+    allow:
+      - ".env.example"
+      - ".env.template"
+      - "*.pem.example"
+
+  # --- Encoding Guard (advisory) ---
+  # Warns about non-UTF-8 files or BOM markers.
+  encoding:
+    enabled: false  # opt-in
+    severity: advisory
+    require_utf8: true
+    block_bom: true
+
+  # --- Path Length Guard (advisory) ---
+  # Warns about paths that exceed OS limits (Windows 260 char).
+  path_length:
+    enabled: false  # opt-in
+    severity: advisory
+    max_length: 260
+
+  # --- Debt Guard (advisory) ---
+  # Tracks new TODO/FIXME/HACK introduced in commits.
+  debt:
+    enabled: false  # opt-in
+    severity: advisory
+    keywords: ["TODO", "FIXME", "HACK", "XXX", "TEMP", "WORKAROUND"]
+    exclude_files: ["CHANGELOG.md", "*.md", "iron-dome.yml"]
+
+# =============================================================================
+# PRE-PUSH GUARDS
+# =============================================================================
+
+  # --- Branch Policy Guard (BLOCKING) ---
+  # Blocks direct push to protected branches.
+  branch_policy:
+    enabled: true
+    severity: blocking
+    protected_branches: ["main", "master"]
+    # Add "develop" if you use gitflow:
+    # protected_branches: ["main", "master", "develop"]
+
+  # --- Semaphore Check (BLOCKING) ---
+  # Concurrency control for multi-agent environments.
+  # Blocks push if another agent/session is working on the repo.
+  semaphore:
+    enabled: true
+    severity: blocking
+    # Semaphore file in repo root: .semaphore.json
+    # Format: {"status":"green|yellow|red","session":"...","agent":"...","since":"..."}
+
+  # --- Orphan Guard (BLOCKING) ---
+  # Blocks push to branches that already have a completed/merged PR.
+  orphan:
+    enabled: true
+    provider: ado
+    severity: blocking
+    provider: auto  # auto | github | gitlab | ado
+    # Provider is auto-detected from remote URL.
+    # For ADO: set IRON_DOME_ADO_ORG and IRON_DOME_ADO_PROJECT env vars.
+
+# =============================================================================
+# PIPELINE GUARDS (CI)
+# =============================================================================
+
+pipeline_guards:
+
+  # --- Compose Validate ---
+  # Validates docker-compose files with `docker compose config`.
+  compose_validate:
+    enabled: false
+    severity: advisory
+    patterns: ["docker-compose*.yml", "docker-compose*.yaml", "compose*.yml", "compose*.yaml"]
+
+  # --- ShellCheck ---
+  # Lints shell scripts with shellcheck.
+  shellcheck:
+    enabled: false
+    severity: advisory
+    exclude_codes: []  # e.g., [SC1091, SC2034]
+
+  # --- JSON Validate ---
+  # Validates JSON files for syntax errors.
+  json_validate:
+    enabled: false
+    severity: blocking
+    patterns: ["**/*.json"]
+    exclude: ["node_modules/**", "package-lock.json"]
+
+  # --- Branch Sync ---
+  # Warns if PR branch is behind target branch.
+  branch_sync:
+    enabled: false
+    severity: advisory
+
+# =============================================================================
+# FILE EXCLUSIONS (global)
+# =============================================================================
+
+exclusions:
+  binary_extensions:
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".gif"
+    - ".ico"
+    - ".woff"
+    - ".woff2"
+    - ".ttf"
+    - ".eot"
+    - ".zip"
+    - ".gz"
+    - ".tar"
+    - ".exe"
+    - ".dll"
+    - ".so"
+    - ".dylib"
+    - ".pdf"
+    - ".svg"
+  skip_patterns:
+    - 'node_modules/'
+    - '\.git/'
+    - 'vendor/'
+    - '__pycache__/'
+    - '\.venv/'
+  max_file_size_kb: 512  # Skip scanning files larger than this
+
+# =============================================================================
+# TELEMETRY
+# =============================================================================
+
+telemetry:
+  enabled: true
+  # Log file location (auto-detected by OS if not set):
+  #   Linux/macOS: ~/.iron-dome/telemetry.jsonl
+  #   Windows: ~/.iron-dome/telemetry.jsonl
+  # file: ~/.iron-dome/telemetry.jsonl
