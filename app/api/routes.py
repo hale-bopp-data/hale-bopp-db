@@ -51,10 +51,8 @@ VERSION = "0.2.0"
 
 # Default dictionary path — can be overridden with env var HB_DICTIONARY_PATH
 import os
-_DICT_PATH = Path(os.environ.get(
-    "HB_DICTIONARY_PATH",
-    "C:/EW/easyway/wiki/guides/db-data-dictionary.json",
-))
+_DEFAULT_DICT = Path(__file__).resolve().parent.parent.parent / "data" / "db-data-dictionary.json"
+_DICT_PATH = Path(os.environ.get("HB_DICTIONARY_PATH", str(_DEFAULT_DICT)))
 
 
 # --- Dictionary (serve the source-of-truth JSON) ---
