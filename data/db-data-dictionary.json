@@ -1,0 +1,859 @@
+{
+  "$schema": "https://easyway.dev/schemas/data-dictionary/v1.json",
+  "metadata": {
+    "name": "EasyWay Data Dictionary",
+    "version": "1.0.0",
+    "description": "Dizionario dati engine-agnostic. Un modello logico, N engine target, sicurezza a profili.",
+    "description_nonna": "Il catalogo di tutti i dati del sistema: cosa sono, dove stanno, chi li può vedere.",
+    "created_at": "2026-03-24",
+    "updated_at": "2026-03-24",
+    "session": "S177",
+    "gedi_case": 47,
+    "philosophy": "Aiutare tutti nei DB in modo semplice alla EasyWay. Senza perdere in qualità, puntando sempre all'eccellenza.",
+    "principles": [
+      "Un concetto = un nome = ovunque",
+      "Un modello logico = ogni engine",
+      "La sicurezza è invisibile quando funziona",
+      "L'errore è un regalo — il sistema impara",
+      "La nonna capisce, l'agente esegue, il DBA approva"
+    ]
+  },
+
+  "engines": {
+    "rdbms": {
+      "postgresql": { "id": "pg", "name": "PostgreSQL", "status": "active", "note": "Primary engine, hale-bopp-db nativo" },
+      "sqlserver":  { "id": "mssql", "name": "SQL Server", "status": "active", "note": "Engine produzione portale" },
+      "oracle":     { "id": "ora", "name": "Oracle", "status": "planned", "note": "Futuro engine enterprise" },
+      "synapse":    { "id": "syn", "name": "Azure Synapse", "status": "planned", "note": "Data warehouse cloud" },
+      "redshift":   { "id": "rs", "name": "Amazon Redshift", "status": "planned", "note": "Data warehouse AWS" }
+    },
+    "complementary": {
+      "redis": { "id": "redis", "name": "Redis", "status": "planned", "note": "Cache, session, pub/sub, rate limiting" }
+    }
+  },
+
+  "type_map": {
+    "uuid":        { "pg": "TEXT",          "mssql": "UNIQUEIDENTIFIER",                  "ora": "VARCHAR2(36)",                        "syn": "NVARCHAR(36)",    "rs": "VARCHAR(36)" },
+    "string":      { "pg": "TEXT",          "mssql": "NVARCHAR(255)",                     "ora": "VARCHAR2(255)",                       "syn": "NVARCHAR(255)",   "rs": "VARCHAR(255)" },
+    "string(n)":   { "pg": "VARCHAR({n})",  "mssql": "NVARCHAR({n})",                     "ora": "VARCHAR2({n})",                       "syn": "NVARCHAR({n})",   "rs": "VARCHAR({n})" },
+    "integer":     { "pg": "INTEGER",       "mssql": "INT",                               "ora": "NUMBER(10)",                          "syn": "INT",             "rs": "INTEGER" },
+    "long":        { "pg": "BIGINT",        "mssql": "BIGINT",                            "ora": "NUMBER(19)",                          "syn": "BIGINT",          "rs": "BIGINT" },
+    "auto":        { "pg": "BIGSERIAL",     "mssql": "BIGINT IDENTITY(1,1)",              "ora": "NUMBER GENERATED ALWAYS AS IDENTITY", "syn": "BIGINT IDENTITY(1,1)", "rs": "BIGINT IDENTITY(1,1)" },
+    "boolean":     { "pg": "BOOLEAN",       "mssql": "BIT",                               "ora": "NUMBER(1)",                           "syn": "BIT",             "rs": "BOOLEAN" },
+    "timestamp":   { "pg": "TIMESTAMPTZ",   "mssql": "DATETIME2",                         "ora": "TIMESTAMP WITH TIME ZONE",            "syn": "DATETIME2",       "rs": "TIMESTAMPTZ" },
+    "date":        { "pg": "DATE",          "mssql": "DATE",                              "ora": "DATE",                                "syn": "DATE",            "rs": "DATE" },
+    "decimal(p,s)":{ "pg": "NUMERIC({p},{s})", "mssql": "DECIMAL({p},{s})",               "ora": "NUMBER({p},{s})",                     "syn": "DECIMAL({p},{s})","rs": "DECIMAL({p},{s})" },
+    "json":        { "pg": "JSONB",         "mssql": "NVARCHAR(MAX)",                     "ora": "CLOB",                                "syn": "NVARCHAR(MAX)",   "rs": "SUPER" },
+    "text_large":  { "pg": "TEXT",          "mssql": "NVARCHAR(MAX)",                     "ora": "CLOB",                                "syn": "NVARCHAR(MAX)",   "rs": "VARCHAR(65535)" }
+  },
+
+  "default_map": {
+    "now()":       { "pg": "NOW()",                     "mssql": "SYSUTCDATETIME()",  "ora": "SYSTIMESTAMP",  "syn": "SYSUTCDATETIME()", "rs": "SYSDATE" },
+    "uuid()":      { "pg": "gen_random_uuid()::TEXT",   "mssql": "NEWID()",           "ora": "SYS_GUID()",   "syn": "NEWID()",          "rs": null },
+    "true":        { "pg": "TRUE",                      "mssql": "1",                 "ora": "1",            "syn": "1",                "rs": "TRUE" },
+    "false":       { "pg": "FALSE",                     "mssql": "0",                 "ora": "0",            "syn": "0",                "rs": "FALSE" },
+    "empty_json":  { "pg": "'{}'::JSONB",               "mssql": "'{}'",              "ora": "'{}'",         "syn": "'{}'",             "rs": "JSON_PARSE('{}')" }
+  },
+
+  "security_profiles": {
+    "essential": {
+      "name": "Essenziale",
+      "description": "Audit + constraint + integrità. Per startup, POC, dev/test, single-tenant.",
+      "description_nonna": "Il minimo per dormire tranquilli: ogni modifica viene registrata.",
+      "capabilities": {
+        "audit_log": true,
+        "standard_columns": true,
+        "check_constraints": true,
+        "foreign_keys": true,
+        "rls": false,
+        "pii_tagging": false,
+        "dynamic_masking": false,
+        "retention_policy": false,
+        "column_encryption": false
+      }
+    },
+    "standard": {
+      "name": "Standard",
+      "description": "Essenziale + RLS (isolamento tenant) + PII tagging. Per PMI, multi-tenant, compliance base.",
+      "description_nonna": "Ogni organizzazione vede solo i propri dati. I dati personali sono etichettati.",
+      "capabilities": {
+        "audit_log": true,
+        "standard_columns": true,
+        "check_constraints": true,
+        "foreign_keys": true,
+        "rls": true,
+        "pii_tagging": true,
+        "dynamic_masking": false,
+        "retention_policy": false,
+        "column_encryption": false
+      }
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "description": "Standard + masking + retention + encryption opzionale. Per GDPR, finance, telco, sanità.",
+      "description_nonna": "Massima protezione: dati personali mascherati, vecchi dati cancellati automaticamente, tutto cifrato.",
+      "capabilities": {
+        "audit_log": true,
+        "standard_columns": true,
+        "check_constraints": true,
+        "foreign_keys": true,
+        "rls": true,
+        "pii_tagging": true,
+        "dynamic_masking": true,
+        "retention_policy": true,
+        "column_encryption": true
+      }
+    }
+  },
+
+  "rls_map": {
+    "pg":    { "mechanism": "CREATE POLICY", "session_var": "current_setting('app.tenant_id', TRUE)", "template": "CREATE POLICY tenant_isolation ON {schema}.{table} USING (tenant_id = current_setting('app.tenant_id', TRUE));" },
+    "mssql": { "mechanism": "SECURITY POLICY", "session_var": "SESSION_CONTEXT(N'tenant_id')", "template": "CREATE SECURITY POLICY {schema}.RLS_TENANT_POLICY_{TABLE} ADD FILTER PREDICATE {schema}.fn_rls_tenant_filter(tenant_id) ON {schema}.{TABLE} WITH (STATE = ON);" },
+    "ora":   { "mechanism": "VPD (DBMS_RLS)", "session_var": "SYS_CONTEXT('EASYWAY', 'TENANT_ID')", "template": "BEGIN DBMS_RLS.ADD_POLICY(object_schema => '{schema}', object_name => '{table}', policy_name => 'tenant_isolation', function_schema => '{schema}', policy_function => 'fn_rls_tenant_filter'); END;" },
+    "syn":   { "mechanism": "VIEW filter", "session_var": "parameter", "template": "CREATE VIEW {schema}.v_{table} AS SELECT * FROM {schema}.{table} WHERE tenant_id = @tenant_id;" },
+    "rs":    { "mechanism": "VIEW filter", "session_var": "parameter", "template": "CREATE VIEW {schema}.v_{table} AS SELECT * FROM {schema}.{table} WHERE tenant_id = :tenant_id;" }
+  },
+
+  "masking_map": {
+    "pg":    { "mechanism": "View-based o pgcrypto", "template": "CREATE VIEW {schema}.v_{table}_masked AS SELECT CASE WHEN current_setting('app.role') = 'admin' THEN {column} ELSE '***' END AS {column} FROM {schema}.{table};" },
+    "mssql": { "mechanism": "Dynamic Data Masking", "template": "ALTER TABLE {schema}.{TABLE} ALTER COLUMN {column} ADD MASKED WITH (FUNCTION = '{mask_function}');" },
+    "ora":   { "mechanism": "DBMS_REDACT", "template": "BEGIN DBMS_REDACT.ADD_POLICY(object_schema => '{schema}', object_name => '{table}', column_name => '{column}', policy_name => 'mask_{column}', function_type => DBMS_REDACT.PARTIAL, expression => 'SYS_CONTEXT(''EASYWAY'',''ROLE'') != ''ADMIN'''); END;" }
+  },
+
+  "standard_columns": [
+    { "name": "tenant_id",  "type": "string(50)", "nullable": false, "description": "FK logica verso tenant. Isolamento multi-tenant.", "description_nonna": "A quale organizzazione appartiene questo dato.", "scope": "multi_tenant_tables" },
+    { "name": "created_at", "type": "timestamp",  "nullable": false, "default": "now()", "description": "Quando è stato creato il record.", "description_nonna": "Quando è stato creato.", "scope": "all" },
+    { "name": "created_by", "type": "string",     "nullable": false, "default": "'system'", "description": "Chi ha creato il record (utente, agente, sistema).", "description_nonna": "Chi lo ha creato.", "scope": "all" },
+    { "name": "updated_at", "type": "timestamp",  "nullable": false, "default": "now()", "description": "Ultimo aggiornamento.", "description_nonna": "Quando è stato modificato l'ultima volta.", "scope": "all" },
+    { "name": "updated_by", "type": "string",     "nullable": false, "default": "'system'", "description": "Chi ha aggiornato.", "description_nonna": "Chi lo ha modificato l'ultima volta.", "scope": "all" }
+  ],
+
+  "name_mapping": [
+    { "concept": "Organizzazione cliente", "canonical": "tenant",          "aliases_forbidden": ["COD_CLI", "CODICE_CLIENTE", "customer_id", "client_id", "org_id"] },
+    { "concept": "Utente portale",         "canonical": "user",            "aliases_forbidden": ["USERS", "utente", "USR_ID", "account_id"] },
+    { "concept": "Email",                  "canonical": "email",           "aliases_forbidden": ["EMAIL_ADDRESS", "user_email", "mail"] },
+    { "concept": "Nome visualizzato",      "canonical": "display_name",    "aliases_forbidden": ["NOME_COGNOME", "full_name", "username"] },
+    { "concept": "Stato entità",           "canonical": "status",          "aliases_forbidden": ["STATO", "state", "flag_active"] },
+    { "concept": "Data creazione",         "canonical": "created_at",      "aliases_forbidden": ["DATA_CREAZIONE", "insert_date", "creation_date", "dt_create"] },
+    { "concept": "Autore creazione",       "canonical": "created_by",      "aliases_forbidden": ["UTENTE_CREAZIONE", "insert_by", "creator"] },
+    { "concept": "Data aggiornamento",     "canonical": "updated_at",      "aliases_forbidden": ["DATA_MODIFICA", "modify_date", "last_update", "dt_update"] },
+    { "concept": "Importo",               "canonical": "total_amount",     "aliases_forbidden": ["IMPORTO", "amount", "price", "valore"] },
+    { "concept": "Appuntamento",          "canonical": "appointment",      "aliases_forbidden": ["APPUNTAMENTO", "booking", "prenotazione"] },
+    { "concept": "Preventivo",            "canonical": "quote",            "aliases_forbidden": ["PREVENTIVO", "estimate", "offerta"] },
+    { "concept": "Configurazione",        "canonical": "config_key",       "aliases_forbidden": ["PARAMETRO", "setting", "param"] },
+    { "concept": "Agente",                "canonical": "agent_id",         "aliases_forbidden": ["AGENT_CODE", "bot_id", "assistant_id"] },
+    { "concept": "Conversazione",         "canonical": "conversation_id",  "aliases_forbidden": ["CHAT_ID", "thread_id", "session_id"] },
+    { "concept": "Abbonamento",           "canonical": "subscription",     "aliases_forbidden": ["PIANO", "plan", "license"] },
+    { "concept": "Profilo/ruolo",         "canonical": "profile_code",     "aliases_forbidden": ["RUOLO", "role_id", "user_type"] },
+    { "concept": "Sezione app",           "canonical": "section_code",     "aliases_forbidden": ["AREA", "module", "feature_code"] },
+    { "concept": "Telefono",              "canonical": "phone",            "aliases_forbidden": ["TELEFONO", "phone_number", "TEL", "cellulare", "mobile"] },
+    { "concept": "Masking",               "canonical": "mask_type",        "aliases_forbidden": ["TIPO_MASCHERA", "obfuscation_type"] }
+  ],
+
+  "schemas": [
+    {
+      "name": "platform",
+      "description": "Schema operativo del portale. Multi-tenant con RLS.",
+      "description_nonna": "Dove stanno i dati del portale: clienti, utenti, appuntamenti, preventivi."
+    },
+    {
+      "name": "security",
+      "description": "Tabelle di governo sicurezza: profili, autorizzazioni, policy RLS/masking.",
+      "description_nonna": "Chi può vedere cosa e come sono protetti i dati."
+    },
+    {
+      "name": "observability",
+      "description": "Log e metriche di esecuzione stored procedure e job.",
+      "description_nonna": "Il registro di tutto quello che succede nel database."
+    },
+    {
+      "name": "agent_mgmt",
+      "description": "Monitoraggio e controllo agenti. Non multi-tenant.",
+      "description_nonna": "Dove il sistema tiene traccia di tutti gli assistenti digitali."
+    },
+    {
+      "name": "analytics",
+      "description": "Data warehouse. Medallion architecture (bronze/silver/gold).",
+      "description_nonna": "Dove finiscono i dati importati per fare analisi e report."
+    }
+  ],
+
+  "entities": [
+    {
+      "id": "tenant",
+      "name": "tenant",
+      "schema": "platform",
+      "type": "DIM",
+      "description": "Organizzazione cliente. Root entity — ogni dato nel sistema appartiene a un tenant.",
+      "description_nonna": "L'azienda cliente. Se sei di Vodafone, vedi solo i dati di Vodafone.",
+      "multi_tenant": "root",
+      "security": {
+        "rls": false,
+        "rls_note": "Root entity, non filtrabile per tenant"
+      },
+      "status": { "mssql": "V3", "pg": "dottrina" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "business_key": { "columns": ["tenant_id"], "unique": true },
+      "columns": [
+        { "name": "id",             "type": "auto",        "nullable": false, "description": "Surrogate key", "description_nonna": "Numero interno" },
+        { "name": "tenant_id",      "type": "string(50)",  "nullable": false, "description": "Business key univoca del tenant", "description_nonna": "Codice dell'azienda" },
+        { "name": "tenant_name",    "type": "string(255)", "nullable": false, "description": "Nome visualizzato dell'organizzazione", "description_nonna": "Nome dell'azienda" },
+        { "name": "plan_code",      "type": "string(50)",  "nullable": true,  "description": "Codice piano commerciale (FREE, PRO, ENTERPRISE)", "description_nonna": "Tipo di abbonamento" },
+        { "name": "status",         "type": "string(50)",  "nullable": true,  "description": "Stato lifecycle", "description_nonna": "Se l'azienda è attiva o no", "check": "status IN ('ACTIVE', 'SUSPENDED', 'DELETED')" },
+        { "name": "ext_attributes", "type": "json",        "nullable": true,  "description": "Attributi estensibili (JSON)", "description_nonna": "Informazioni extra" },
+        { "name": "created_by",     "type": "string(255)", "nullable": false, "default": "'MANUAL'", "description": "Chi ha creato" },
+        { "name": "created_at",     "type": "timestamp",   "nullable": false, "default": "now()", "description": "Quando creato" },
+        { "name": "updated_at",     "type": "timestamp",   "nullable": false, "default": "now()", "description": "Ultimo aggiornamento" }
+      ],
+      "indexes": [
+        { "name": "ux_tenant_tenant_id", "columns": ["tenant_id"], "unique": true }
+      ]
+    },
+
+    {
+      "id": "user",
+      "name": "user",
+      "schema": "platform",
+      "type": "DIM",
+      "description": "Utente del portale. Scoped per tenant, email unica per tenant.",
+      "description_nonna": "Una persona che usa il portale. Ogni azienda ha i suoi utenti.",
+      "multi_tenant": true,
+      "security": {
+        "rls": true,
+        "rls_policy": "RLS_TENANT_POLICY_USERS",
+        "rls_migration": "V5",
+        "pii_columns": ["email", "display_name"],
+        "masking": {
+          "email": "partial",
+          "display_name": "full"
+        }
+      },
+      "status": { "mssql": "V3", "pg": "dottrina" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "business_key": { "columns": ["tenant_id", "user_id"], "unique": true },
+      "columns": [
+        { "name": "id",             "type": "auto",        "nullable": false, "description": "Surrogate key" },
+        { "name": "user_id",        "type": "string(50)",  "nullable": false, "description": "Codice utente NDG", "description_nonna": "Codice dell'utente" },
+        { "name": "tenant_id",      "type": "string(50)",  "nullable": false, "description": "FK logica → tenant", "fk": "tenant.tenant_id" },
+        { "name": "email",          "type": "string(320)", "nullable": false, "description": "Email utente", "description_nonna": "Indirizzo email", "pii": true, "check": "email ~* '^[^@]+@[^@]+\\.[^@]+$'" },
+        { "name": "display_name",   "type": "string(100)", "nullable": true,  "description": "Nome e cognome", "description_nonna": "Nome della persona", "pii": true },
+        { "name": "profile_id",     "type": "string(64)",  "nullable": true,  "description": "FK logica → profile_domain", "fk": "profile_domain.profile_code" },
+        { "name": "is_active",      "type": "boolean",     "nullable": false, "default": "true", "description": "Soft-delete flag", "description_nonna": "Se l'utente è attivo" },
+        { "name": "status",         "type": "string(50)",  "nullable": true,  "description": "Stato supplementare" },
+        { "name": "ext_attributes", "type": "json",        "nullable": true,  "description": "Attributi estensibili" },
+        { "name": "created_by",     "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",     "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",     "type": "timestamp",   "nullable": false, "default": "now()" }
+      ],
+      "indexes": [
+        { "name": "ux_user_tenant_user",  "columns": ["tenant_id", "user_id"], "unique": true },
+        { "name": "ux_user_tenant_email", "columns": ["tenant_id", "email"],   "unique": true },
+        { "name": "ix_user_tenant",       "columns": ["tenant_id"] }
+      ]
+    },
+
+    {
+      "id": "configuration",
+      "name": "configuration",
+      "schema": "platform",
+      "type": "CONFIG",
+      "description": "Configurazione applicativa key-value per tenant, con sezione e flag enabled.",
+      "description_nonna": "Le impostazioni del sistema per ogni azienda.",
+      "multi_tenant": true,
+      "security": {
+        "rls": true,
+        "rls_policy": "RLS_TENANT_POLICY_CONFIGURATION",
+        "rls_migration": "V10",
+        "pii_columns": [],
+        "pii_note": "config_value potrebbe contenere dati sensibili — mai salvare password/secret"
+      },
+      "status": { "mssql": "V3", "pg": "planned" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "business_key": { "columns": ["tenant_id", "section_normalized", "config_key"], "unique": true },
+      "columns": [
+        { "name": "id",                  "type": "auto",        "nullable": false },
+        { "name": "tenant_id",           "type": "string(50)",  "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "section",             "type": "string(64)",  "nullable": true,  "description": "Sezione logica (raggruppamento)", "description_nonna": "Gruppo di impostazioni" },
+        { "name": "section_normalized",  "type": "string(64)",  "nullable": false, "computed": "coalesce(section, '')", "description": "Sezione per indice UNIQUE (persisted)" },
+        { "name": "config_key",          "type": "string(100)", "nullable": false, "description": "Chiave configurazione", "description_nonna": "Nome dell'impostazione" },
+        { "name": "config_value",        "type": "text_large",  "nullable": true,  "description": "Valore (può contenere JSON)", "description_nonna": "Valore dell'impostazione" },
+        { "name": "enabled",             "type": "boolean",     "nullable": false, "default": "true", "description": "Flag abilitazione" },
+        { "name": "created_by",          "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",          "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",          "type": "timestamp",   "nullable": false, "default": "now()" }
+      ],
+      "indexes": [
+        { "name": "ux_configuration_key", "columns": ["tenant_id", "section_normalized", "config_key"], "unique": true }
+      ],
+      "redis": {
+        "use_case": "cache",
+        "structure": "HASH",
+        "key_pattern": "tenant:{tenant_id}:config",
+        "ttl_seconds": 300,
+        "strategy": "write-through"
+      }
+    },
+
+    {
+      "id": "subscription",
+      "name": "subscription",
+      "schema": "platform",
+      "type": "DIM",
+      "description": "Piano di abbonamento del tenant (tipo piano, scadenza, pagamento).",
+      "description_nonna": "Il tipo di abbonamento dell'azienda e quando scade.",
+      "multi_tenant": true,
+      "security": {
+        "rls": false,
+        "rls_note": "Da implementare",
+        "pii_columns": ["external_payment_id"],
+        "masking": { "external_payment_id": "full" }
+      },
+      "status": { "mssql": "V3.1" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",                   "type": "auto",        "nullable": false },
+        { "name": "tenant_id",            "type": "string(50)",  "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "plan_code",            "type": "string(50)",  "nullable": false, "description": "Codice piano (FREE, PRO, ENTERPRISE)", "description_nonna": "Tipo di abbonamento" },
+        { "name": "status",               "type": "string(50)",  "nullable": false, "description": "Stato (ACTIVE, EXPIRED, CANCELLED)", "check": "status IN ('ACTIVE', 'EXPIRED', 'CANCELLED')" },
+        { "name": "start_date",           "type": "timestamp",   "nullable": false, "description": "Inizio validità" },
+        { "name": "end_date",             "type": "timestamp",   "nullable": false, "description": "Fine validità" },
+        { "name": "external_payment_id",  "type": "string(100)", "nullable": true,  "description": "ID pagamento su provider esterno", "pii": true },
+        { "name": "payment_provider",     "type": "string(50)",  "nullable": true,  "description": "Provider pagamento (Stripe, ecc.)" },
+        { "name": "last_payment_date",    "type": "timestamp",   "nullable": true,  "description": "Ultimo pagamento ricevuto" },
+        { "name": "ext_attributes",       "type": "json",        "nullable": true },
+        { "name": "created_by",           "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",           "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",           "type": "timestamp",   "nullable": false, "default": "now()" }
+      ],
+      "indexes": [
+        { "name": "ix_subscription_tenant", "columns": ["tenant_id"] }
+      ]
+    },
+
+    {
+      "id": "log_audit",
+      "name": "log_audit",
+      "schema": "platform",
+      "type": "LOG",
+      "description": "Audit log applicativo: chi ha fatto cosa, quando, da dove. Immutabile.",
+      "description_nonna": "Il registro di tutto quello che succede: chi ha fatto cosa e quando.",
+      "multi_tenant": true,
+      "security": {
+        "rls": false,
+        "rls_note": "tenant_id nullable — da implementare con attenzione",
+        "pii_columns": ["actor"],
+        "masking": { "actor": "partial" }
+      },
+      "status": { "mssql": "V4" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",          "type": "auto",        "nullable": false, "note": "BIGINT per alto volume" },
+        { "name": "event_time",  "type": "timestamp",   "nullable": false, "default": "now()", "description": "Timestamp dell'evento" },
+        { "name": "tenant_id",   "type": "string(50)",  "nullable": true,  "description": "FK logica → tenant (null per eventi di sistema)", "fk": "tenant.tenant_id" },
+        { "name": "actor",       "type": "string(255)", "nullable": true,  "description": "Chi ha eseguito (user/chatbot/service)", "pii": true },
+        { "name": "origin",      "type": "string(64)",  "nullable": true,  "description": "Sorgente: api, agent, ams, job" },
+        { "name": "category",    "type": "string(64)",  "nullable": true,  "description": "Categoria: security, notify, config" },
+        { "name": "message",     "type": "text_large",  "nullable": true,  "description": "Descrizione evento" },
+        { "name": "payload",     "type": "json",        "nullable": true,  "description": "Dettaglio evento (JSON)" },
+        { "name": "status",      "type": "string(32)",  "nullable": true,  "description": "Esito: OK, ERROR, WARNING" }
+      ],
+      "indexes": [
+        { "name": "ix_log_audit_tenant_time", "columns": ["tenant_id", "event_time"] }
+      ],
+      "retention": { "hot_days": 90, "cold_days": 365, "archive": "delete" }
+    },
+
+    {
+      "id": "agent_chat_message",
+      "name": "agent_chat_message",
+      "schema": "platform",
+      "type": "LOG",
+      "description": "Messaggio nella conversazione utente-agente. Soft-deletable.",
+      "description_nonna": "I messaggi tra le persone e gli assistenti digitali.",
+      "multi_tenant": true,
+      "security": {
+        "rls": false,
+        "rls_note": "Da implementare",
+        "pii_columns": ["actor", "content"],
+        "masking": { "actor": "partial", "content": "full" }
+      },
+      "status": { "mssql": "V13", "pg": "dottrina" },
+      "pk": { "columns": ["message_id"], "type": "uuid" },
+      "columns": [
+        { "name": "message_id",      "type": "uuid",       "nullable": false, "default": "uuid()" },
+        { "name": "tenant_id",       "type": "string(50)", "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "actor",           "type": "string",     "nullable": false, "description": "Chi scrive", "pii": true },
+        { "name": "agent_id",        "type": "string",     "nullable": false, "description": "ID agente coinvolto" },
+        { "name": "conversation_id", "type": "string",     "nullable": false, "description": "Raggruppa messaggi in conversazione" },
+        { "name": "role",            "type": "string",     "nullable": false, "description": "Ruolo: user, agent, system", "check": "role IN ('user', 'agent', 'system')" },
+        { "name": "content",         "type": "text_large", "nullable": false, "description": "Contenuto messaggio", "pii": true },
+        { "name": "metadata",        "type": "json",       "nullable": true,  "description": "Metadata (token, model, ecc.)" },
+        { "name": "is_deleted",      "type": "boolean",    "nullable": false, "default": "false", "description": "Soft-delete flag" },
+        { "name": "event_time",      "type": "timestamp",  "nullable": false, "default": "now()" },
+        { "name": "created_by",      "type": "string",     "nullable": false, "default": "'system'" }
+      ],
+      "indexes": [
+        { "name": "ix_chat_tenant_conv",        "columns": ["tenant_id", "conversation_id"] },
+        { "name": "ix_chat_tenant_actor_agent",  "columns": ["tenant_id", "actor", "agent_id"] }
+      ],
+      "redis": {
+        "use_case": "cache_recent",
+        "structure": "LIST",
+        "key_pattern": "chat:{conversation_id}:recent",
+        "max_items": 50,
+        "strategy": "write-through"
+      }
+    },
+
+    {
+      "id": "user_notification_settings",
+      "name": "user_notification_settings",
+      "schema": "platform",
+      "type": "CONFIG",
+      "description": "Preferenze notifica per utente: cosa riceve, su quali eventi.",
+      "description_nonna": "Quali notifiche vuole ricevere ogni persona.",
+      "multi_tenant": true,
+      "security": { "rls": false, "rls_note": "Da implementare" },
+      "status": { "mssql": "V3.1" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",                "type": "auto",        "nullable": false },
+        { "name": "tenant_id",         "type": "string(50)",  "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "user_id",           "type": "string(50)",  "nullable": false, "fk": "user.user_id" },
+        { "name": "notify_on_upload",  "type": "boolean",     "nullable": true,  "description": "Notifica su caricamento dati", "description_nonna": "Avvisa quando arrivano nuovi dati" },
+        { "name": "notify_on_alert",   "type": "boolean",     "nullable": true,  "description": "Notifica su alert/anomalia", "description_nonna": "Avvisa quando qualcosa non va" },
+        { "name": "notify_on_digest",  "type": "boolean",     "nullable": true,  "description": "Notifica digest periodico", "description_nonna": "Riepilogo periodico" },
+        { "name": "ext_attributes",    "type": "json",        "nullable": true },
+        { "name": "created_by",        "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",        "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",        "type": "timestamp",   "nullable": false, "default": "now()" }
+      ],
+      "indexes": [
+        { "name": "ix_user_notif_tenant_user", "columns": ["tenant_id", "user_id"] }
+      ]
+    },
+
+    {
+      "id": "profile_domain",
+      "name": "profile_domain",
+      "schema": "security",
+      "type": "DIM",
+      "description": "Catalogo profili/ruoli autorizzativi (admin, viewer, editor).",
+      "description_nonna": "I tipi di permesso: chi è amministratore, chi può solo guardare, ecc.",
+      "multi_tenant": false,
+      "security": { "rls": false, "rls_note": "Catalogo globale" },
+      "status": { "mssql": "V3.1" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "business_key": { "columns": ["profile_code"], "unique": true },
+      "columns": [
+        { "name": "id",             "type": "auto",        "nullable": false },
+        { "name": "profile_code",   "type": "string(50)",  "nullable": false, "description": "Codice profilo UNIQUE", "description_nonna": "Nome del tipo di permesso" },
+        { "name": "description",    "type": "string(255)", "nullable": true },
+        { "name": "ext_attributes", "type": "json",        "nullable": true },
+        { "name": "created_by",     "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",     "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",     "type": "timestamp",   "nullable": false, "default": "now()" }
+      ]
+    },
+
+    {
+      "id": "section_access",
+      "name": "section_access",
+      "schema": "security",
+      "type": "BRIDGE",
+      "description": "Matrice autorizzazioni: chi (profilo/utente) può accedere a cosa (sezione) per quale tenant.",
+      "description_nonna": "La tabella che dice chi può entrare dove.",
+      "multi_tenant": true,
+      "security": { "rls": false, "rls_note": "Da implementare" },
+      "status": { "mssql": "V3.1" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",             "type": "auto",        "nullable": false },
+        { "name": "tenant_id",      "type": "string(50)",  "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "section_code",   "type": "string(50)",  "nullable": true,  "description": "Sezione/funzionalità", "description_nonna": "Quale parte del portale" },
+        { "name": "profile_code",   "type": "string(50)",  "nullable": true,  "description": "FK logica → profile_domain", "fk": "profile_domain.profile_code" },
+        { "name": "user_id",        "type": "string(50)",  "nullable": true,  "description": "Override per singolo utente", "fk": "user.user_id" },
+        { "name": "is_enabled",     "type": "boolean",     "nullable": true },
+        { "name": "valid_from",     "type": "timestamp",   "nullable": true,  "description": "Inizio validità temporale" },
+        { "name": "valid_to",       "type": "timestamp",   "nullable": true,  "description": "Fine validità temporale" },
+        { "name": "ext_attributes", "type": "json",        "nullable": true },
+        { "name": "created_by",     "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",     "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",     "type": "timestamp",   "nullable": false, "default": "now()" }
+      ]
+    },
+
+    {
+      "id": "rls_metadata",
+      "name": "rls_metadata",
+      "schema": "security",
+      "type": "META",
+      "description": "Registro dichiarativo delle policy RLS: su quale tabella, quale colonna, quale funzione predicate.",
+      "description_nonna": "La mappa che dice quali tabelle sono protette e come.",
+      "multi_tenant": false,
+      "security": { "rls": false, "rls_note": "Governa le policy, non è governata" },
+      "status": { "mssql": "V3.1" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",                  "type": "auto",        "nullable": false },
+        { "name": "tenant_id",           "type": "string(50)",  "nullable": true,  "description": "Scope (null = globale)" },
+        { "name": "schema_name",         "type": "string(50)",  "nullable": true },
+        { "name": "table_name",          "type": "string(100)", "nullable": true },
+        { "name": "column_name",         "type": "string(100)", "nullable": true,  "description": "Colonna filtro (tipicamente tenant_id)" },
+        { "name": "policy_name",         "type": "string(100)", "nullable": true },
+        { "name": "predicate_function",  "type": "string(255)", "nullable": true,  "description": "Funzione predicate" },
+        { "name": "note",                "type": "string(255)", "nullable": true },
+        { "name": "ext_attributes",      "type": "json",        "nullable": true },
+        { "name": "created_by",          "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",          "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",          "type": "timestamp",   "nullable": false, "default": "now()" }
+      ]
+    },
+
+    {
+      "id": "masking_metadata",
+      "name": "masking_metadata",
+      "schema": "security",
+      "type": "META",
+      "description": "Registro delle regole di masking: quale colonna viene mascherata, con quale tecnica.",
+      "description_nonna": "La mappa che dice quali dati sono nascosti e per chi.",
+      "multi_tenant": false,
+      "security": { "rls": false, "rls_note": "Governa il masking" },
+      "status": { "mssql": "V3.1" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",             "type": "auto",        "nullable": false },
+        { "name": "tenant_id",      "type": "string(50)",  "nullable": true,  "description": "Scope (null = globale)" },
+        { "name": "schema_name",    "type": "string(50)",  "nullable": true },
+        { "name": "table_name",     "type": "string(100)", "nullable": true },
+        { "name": "column_name",    "type": "string(100)", "nullable": true },
+        { "name": "mask_type",      "type": "string(50)",  "nullable": true,  "description": "Tipo: partial, full, email, random" },
+        { "name": "note",           "type": "string(255)", "nullable": true },
+        { "name": "ext_attributes", "type": "json",        "nullable": true },
+        { "name": "created_by",     "type": "string(255)", "nullable": false, "default": "'MANUAL'" },
+        { "name": "created_at",     "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",     "type": "timestamp",   "nullable": false, "default": "now()" }
+      ]
+    },
+
+    {
+      "id": "stats_execution_log",
+      "name": "stats_execution_log",
+      "schema": "observability",
+      "type": "LOG",
+      "description": "Log esecuzione stored procedure / job: timing, esito, righe modificate.",
+      "description_nonna": "Il registro di ogni operazione del database: quando è partita, se è andata bene, quanti dati ha toccato.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V4" },
+      "pk": { "columns": ["execution_id"], "type": "uuid" },
+      "columns": [
+        { "name": "execution_id",  "type": "uuid",        "nullable": false, "default": "uuid()" },
+        { "name": "proc_name",     "type": "string(255)", "nullable": false, "description": "Nome SP / job eseguito" },
+        { "name": "tenant_id",     "type": "string(50)",  "nullable": true },
+        { "name": "start_time",    "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "end_time",      "type": "timestamp",   "nullable": true },
+        { "name": "status",        "type": "string(16)",  "nullable": true,  "description": "OK / ERROR" },
+        { "name": "error_message", "type": "text_large",  "nullable": true },
+        { "name": "rows_inserted", "type": "integer",     "nullable": true },
+        { "name": "rows_updated",  "type": "integer",     "nullable": true },
+        { "name": "rows_deleted",  "type": "integer",     "nullable": true },
+        { "name": "created_by",    "type": "string(255)", "nullable": true }
+      ],
+      "indexes": [
+        { "name": "ix_stats_exec_time",   "columns": ["start_time"] },
+        { "name": "ix_stats_exec_tenant", "columns": ["tenant_id"] }
+      ]
+    },
+
+    {
+      "id": "stats_execution_table_log",
+      "name": "stats_execution_table_log",
+      "schema": "observability",
+      "type": "LOG",
+      "description": "Dettaglio per tabella di ogni esecuzione: quale tabella toccata, quale operazione.",
+      "description_nonna": "Per ogni operazione, quali tabelle sono state modificate e quante righe.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V4" },
+      "pk": { "columns": ["id"], "type": "auto" },
+      "columns": [
+        { "name": "id",              "type": "auto",        "nullable": false },
+        { "name": "execution_id",    "type": "uuid",        "nullable": false, "fk": "stats_execution_log.execution_id", "on_delete": "CASCADE" },
+        { "name": "table_name",      "type": "string(256)", "nullable": false, "description": "schema.tabella toccata" },
+        { "name": "operation_types", "type": "string(64)",  "nullable": true,  "description": "INSERT, UPDATE, DELETE" },
+        { "name": "rows_affected",   "type": "integer",     "nullable": true }
+      ],
+      "indexes": [
+        { "name": "ix_stats_table_exec", "columns": ["execution_id"] }
+      ]
+    },
+
+    {
+      "id": "agent_registry",
+      "name": "agent_registry",
+      "schema": "agent_mgmt",
+      "type": "DIM",
+      "description": "Registro master agenti: metadata, config LLM, stato enable/active.",
+      "description_nonna": "L'elenco di tutti gli assistenti digitali: come si chiamano, cosa sanno fare, se sono accesi.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V15" },
+      "pk": { "columns": ["agent_id"], "type": "string(100)" },
+      "columns": [
+        { "name": "agent_id",             "type": "string(100)", "nullable": false },
+        { "name": "agent_name",           "type": "string(255)", "nullable": false },
+        { "name": "classification",       "type": "string(50)",  "nullable": false, "description": "brain, specialist, worker", "description_nonna": "Tipo: cervello, specialista, o operaio" },
+        { "name": "role",                 "type": "string(100)", "nullable": false },
+        { "name": "version",              "type": "string(20)",  "nullable": false },
+        { "name": "owner",                "type": "string(100)", "nullable": false },
+        { "name": "description",          "type": "text_large",  "nullable": true },
+        { "name": "is_enabled",           "type": "boolean",     "nullable": false, "default": "true" },
+        { "name": "is_active",            "type": "boolean",     "nullable": false, "default": "false", "description": "In esecuzione ora" },
+        { "name": "manifest_path",        "type": "string(500)", "nullable": true },
+        { "name": "script_path",          "type": "string(500)", "nullable": true },
+        { "name": "llm_model",            "type": "string(100)", "nullable": true },
+        { "name": "llm_temperature",      "type": "decimal(3,2)","nullable": true },
+        { "name": "context_limit_tokens", "type": "integer",     "nullable": true },
+        { "name": "created_at",           "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",           "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "created_by",           "type": "string(100)", "nullable": false, "default": "'system'" },
+        { "name": "updated_by",           "type": "string(100)", "nullable": false, "default": "'system'" },
+        { "name": "last_sync_at",         "type": "timestamp",   "nullable": true },
+        { "name": "manifest_hash",        "type": "string(64)",  "nullable": true, "description": "SHA256 manifest per change detection" }
+      ],
+      "indexes": [
+        { "name": "ix_agent_classification", "columns": ["classification"] },
+        { "name": "ix_agent_enabled",        "columns": ["is_enabled"] },
+        { "name": "ix_agent_active",         "columns": ["is_active"] }
+      ]
+    },
+
+    {
+      "id": "agent_execution",
+      "name": "agent_execution",
+      "schema": "agent_mgmt",
+      "type": "FACT",
+      "description": "Singola esecuzione di un agente: timing, token, costi, esito.",
+      "description_nonna": "Ogni volta che un assistente fa qualcosa, viene registrato qui: quanto ci ha messo, quanto è costato.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V15" },
+      "pk": { "columns": ["execution_id"], "type": "auto" },
+      "columns": [
+        { "name": "execution_id",       "type": "auto",           "nullable": false },
+        { "name": "agent_id",           "type": "string(100)",    "nullable": false, "fk": "agent_registry.agent_id" },
+        { "name": "action_name",        "type": "string(200)",    "nullable": true,  "description": "Azione eseguita (es. gedi:ooda.loop)" },
+        { "name": "intent_id",          "type": "string(100)",    "nullable": true },
+        { "name": "triggered_by",       "type": "string(100)",    "nullable": false, "description": "user, system, webhook, schedule" },
+        { "name": "status",             "type": "string(20)",     "nullable": false, "default": "'TODO'", "check": "status IN ('TODO', 'ONGOING', 'DONE', 'FAILED', 'CANCELLED')" },
+        { "name": "status_message",     "type": "text_large",     "nullable": true },
+        { "name": "queued_at",          "type": "timestamp",      "nullable": false, "default": "now()" },
+        { "name": "started_at",         "type": "timestamp",      "nullable": true },
+        { "name": "completed_at",       "type": "timestamp",      "nullable": true },
+        { "name": "duration_ms",        "type": "integer",        "nullable": true },
+        { "name": "tokens_consumed",    "type": "integer",        "nullable": true,  "default": "0" },
+        { "name": "tokens_prompt",      "type": "integer",        "nullable": true,  "default": "0" },
+        { "name": "tokens_completion",  "type": "integer",        "nullable": true,  "default": "0" },
+        { "name": "api_calls_count",    "type": "integer",        "nullable": true,  "default": "0" },
+        { "name": "estimated_cost_usd", "type": "decimal(10,6)",  "nullable": true,  "default": "0" },
+        { "name": "success",            "type": "boolean",        "nullable": true },
+        { "name": "error_message",      "type": "text_large",     "nullable": true },
+        { "name": "output_summary",     "type": "text_large",     "nullable": true },
+        { "name": "output_path",        "type": "string(500)",    "nullable": true },
+        { "name": "created_at",         "type": "timestamp",      "nullable": false, "default": "now()" },
+        { "name": "updated_at",         "type": "timestamp",      "nullable": false, "default": "now()" }
+      ],
+      "indexes": [
+        { "name": "ix_exec_agent",      "columns": ["agent_id"] },
+        { "name": "ix_exec_status",     "columns": ["status"] },
+        { "name": "ix_exec_queued",     "columns": ["queued_at"], "desc": true },
+        { "name": "ix_exec_started",    "columns": ["started_at"], "desc": true }
+      ],
+      "redis": {
+        "use_case": "rate_limiting",
+        "structure": "STRING",
+        "key_pattern": "agent:{agent_id}:calls:{minute}",
+        "ttl_seconds": 120,
+        "strategy": "increment"
+      }
+    },
+
+    {
+      "id": "agent_metric",
+      "name": "agent_metric",
+      "schema": "agent_mgmt",
+      "type": "FACT",
+      "description": "Metriche time-series per performance agenti.",
+      "description_nonna": "I numeri di prestazione di ogni assistente nel tempo.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V15" },
+      "pk": { "columns": ["metric_id"], "type": "auto" },
+      "columns": [
+        { "name": "metric_id",        "type": "auto",           "nullable": false },
+        { "name": "agent_id",         "type": "string(100)",    "nullable": false, "fk": "agent_registry.agent_id" },
+        { "name": "execution_id",     "type": "long",           "nullable": true,  "fk": "agent_execution.execution_id" },
+        { "name": "metric_timestamp", "type": "timestamp",      "nullable": false, "default": "now()" },
+        { "name": "metric_type",      "type": "string(50)",     "nullable": false, "description": "token_usage, execution_time, error_rate" },
+        { "name": "metric_value",     "type": "decimal(18,6)",  "nullable": false },
+        { "name": "metric_unit",      "type": "string(20)",     "nullable": true,  "description": "tokens, ms, percent, count" },
+        { "name": "dimension_1",      "type": "string(100)",    "nullable": true,  "description": "es. model_name" },
+        { "name": "dimension_2",      "type": "string(100)",    "nullable": true,  "description": "es. action_type" },
+        { "name": "created_at",       "type": "timestamp",      "nullable": false, "default": "now()" }
+      ],
+      "indexes": [
+        { "name": "ix_metric_agent_ts", "columns": ["agent_id", "metric_timestamp"], "desc_last": true },
+        { "name": "ix_metric_type",     "columns": ["metric_type"] }
+      ]
+    },
+
+    {
+      "id": "agent_capability",
+      "name": "agent_capability",
+      "schema": "agent_mgmt",
+      "type": "DIM",
+      "description": "Capability registrate per agente (cosa sa fare).",
+      "description_nonna": "Le abilità di ogni assistente: cosa è capace di fare.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V15" },
+      "pk": { "columns": ["capability_id"], "type": "auto" },
+      "columns": [
+        { "name": "capability_id",          "type": "auto",        "nullable": false },
+        { "name": "agent_id",               "type": "string(100)", "nullable": false, "fk": "agent_registry.agent_id" },
+        { "name": "capability_name",        "type": "string(200)", "nullable": false },
+        { "name": "capability_description", "type": "text_large",  "nullable": true },
+        { "name": "is_enabled",             "type": "boolean",     "nullable": false, "default": "true" },
+        { "name": "created_at",             "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",             "type": "timestamp",   "nullable": false, "default": "now()" }
+      ],
+      "constraints": [
+        { "name": "uq_agent_capability", "type": "UNIQUE", "columns": ["agent_id", "capability_name"] }
+      ]
+    },
+
+    {
+      "id": "agent_trigger",
+      "name": "agent_trigger",
+      "schema": "agent_mgmt",
+      "type": "CONFIG",
+      "description": "Trigger configurati per agente (event, schedule, webhook, manual).",
+      "description_nonna": "Cosa fa partire ogni assistente: un evento, un orario, una chiamata esterna.",
+      "multi_tenant": false,
+      "security": { "rls": false },
+      "status": { "mssql": "V15" },
+      "pk": { "columns": ["trigger_id"], "type": "auto" },
+      "columns": [
+        { "name": "trigger_id",          "type": "auto",        "nullable": false },
+        { "name": "agent_id",            "type": "string(100)", "nullable": false, "fk": "agent_registry.agent_id" },
+        { "name": "trigger_name",        "type": "string(200)", "nullable": false },
+        { "name": "trigger_description", "type": "text_large",  "nullable": true },
+        { "name": "is_enabled",          "type": "boolean",     "nullable": false, "default": "true" },
+        { "name": "trigger_type",        "type": "string(50)",  "nullable": true,  "description": "event, schedule, webhook, manual" },
+        { "name": "trigger_config",      "type": "json",        "nullable": true,  "description": "Configurazione JSON" },
+        { "name": "last_triggered_at",   "type": "timestamp",   "nullable": true },
+        { "name": "trigger_count",       "type": "integer",     "nullable": true,  "default": "0" },
+        { "name": "created_at",          "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "updated_at",          "type": "timestamp",   "nullable": false, "default": "now()" }
+      ],
+      "constraints": [
+        { "name": "uq_agent_trigger", "type": "UNIQUE", "columns": ["agent_id", "trigger_name"] }
+      ]
+    },
+
+    {
+      "id": "raw_import",
+      "name": "raw_import",
+      "schema": "analytics",
+      "type": "FACT",
+      "description": "Record grezzi da import (Excel, CSV, API). Bronze layer.",
+      "description_nonna": "I dati appena caricati, prima di essere controllati e puliti.",
+      "multi_tenant": true,
+      "security": { "rls": true, "rls_note": "Da implementare" },
+      "status": {},
+      "pk": { "columns": ["import_id"], "type": "auto" },
+      "columns": [
+        { "name": "import_id",    "type": "auto",        "nullable": false },
+        { "name": "tenant_id",    "type": "string(50)",  "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "source_type",  "type": "string(50)",  "nullable": false, "description": "excel, csv, api, manual" },
+        { "name": "source_name",  "type": "string(255)", "nullable": true,  "description": "Nome file o endpoint" },
+        { "name": "raw_data",     "type": "json",        "nullable": false, "description": "Contenuto grezzo come JSON" },
+        { "name": "row_count",    "type": "integer",     "nullable": true },
+        { "name": "status",       "type": "string(20)",  "nullable": false, "default": "'PENDING'", "check": "status IN ('PENDING', 'VALIDATED', 'REJECTED', 'LOADED')" },
+        { "name": "created_at",   "type": "timestamp",   "nullable": false, "default": "now()" },
+        { "name": "created_by",   "type": "string",      "nullable": false, "default": "'system'" }
+      ]
+    },
+
+    {
+      "id": "data_quality_result",
+      "name": "data_quality_result",
+      "schema": "analytics",
+      "type": "FACT",
+      "description": "Risultati validazione ARGOS per ogni record importato.",
+      "description_nonna": "Il voto di ogni dato importato: è buono o ha problemi?",
+      "multi_tenant": true,
+      "security": { "rls": true, "rls_note": "Da implementare" },
+      "status": {},
+      "pk": { "columns": ["result_id"], "type": "auto" },
+      "columns": [
+        { "name": "result_id",    "type": "auto",        "nullable": false },
+        { "name": "import_id",    "type": "long",        "nullable": false, "fk": "raw_import.import_id" },
+        { "name": "tenant_id",    "type": "string(50)",  "nullable": false, "fk": "tenant.tenant_id" },
+        { "name": "rule_name",    "type": "string(100)", "nullable": false, "description": "Nome regola ARGOS" },
+        { "name": "severity",     "type": "string(20)",  "nullable": false, "description": "error, warning, info" },
+        { "name": "column_name",  "type": "string(100)", "nullable": true },
+        { "name": "row_index",    "type": "integer",     "nullable": true },
+        { "name": "message",      "type": "text_large",  "nullable": false, "description": "Descrizione del problema" },
+        { "name": "passed",       "type": "boolean",     "nullable": false },
+        { "name": "created_at",   "type": "timestamp",   "nullable": false, "default": "now()" }
+      ]
+    }
+  ],
+
+  "relationships": [
+    { "from": "user",                       "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "user",                       "from_column": "profile_id",     "to": "profile_domain",      "to_column": "profile_code",   "cardinality": "many-to-one" },
+    { "from": "configuration",              "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "subscription",               "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "log_audit",                  "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "agent_chat_message",         "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "user_notification_settings", "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "user_notification_settings", "from_column": "user_id",        "to": "user",                "to_column": "user_id",        "cardinality": "many-to-one" },
+    { "from": "section_access",             "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "section_access",             "from_column": "profile_code",   "to": "profile_domain",      "to_column": "profile_code",   "cardinality": "many-to-one" },
+    { "from": "section_access",             "from_column": "user_id",        "to": "user",                "to_column": "user_id",        "cardinality": "many-to-one" },
+    { "from": "stats_execution_table_log",  "from_column": "execution_id",   "to": "stats_execution_log", "to_column": "execution_id",   "cardinality": "many-to-one", "on_delete": "CASCADE" },
+    { "from": "agent_execution",            "from_column": "agent_id",       "to": "agent_registry",      "to_column": "agent_id",       "cardinality": "many-to-one" },
+    { "from": "agent_metric",               "from_column": "agent_id",       "to": "agent_registry",      "to_column": "agent_id",       "cardinality": "many-to-one" },
+    { "from": "agent_metric",               "from_column": "execution_id",   "to": "agent_execution",     "to_column": "execution_id",   "cardinality": "many-to-one" },
+    { "from": "agent_capability",           "from_column": "agent_id",       "to": "agent_registry",      "to_column": "agent_id",       "cardinality": "many-to-one" },
+    { "from": "agent_trigger",              "from_column": "agent_id",       "to": "agent_registry",      "to_column": "agent_id",       "cardinality": "many-to-one" },
+    { "from": "data_quality_result",        "from_column": "import_id",      "to": "raw_import",          "to_column": "import_id",      "cardinality": "many-to-one" },
+    { "from": "data_quality_result",        "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" },
+    { "from": "raw_import",                 "from_column": "tenant_id",      "to": "tenant",              "to_column": "tenant_id",      "cardinality": "many-to-one" }
+  ],
+
+  "validation_rules": {
+    "description": "I 7 check che ogni modifica deve superare — da chiunque provenga.",
+    "checks": [
+      { "id": 1, "name": "canonical_name",      "description": "Il nome è nel mapping nomi?",             "auto_fix": true,  "fix": "Propone il nome canonico corretto" },
+      { "id": 2, "name": "valid_type",           "description": "Il tipo logico è nella Type Map?",        "auto_fix": false, "fix": "Mostra i tipi ammessi" },
+      { "id": 3, "name": "no_duplicate",         "description": "Esiste già una colonna con questo nome?", "auto_fix": false, "fix": "Mostra la colonna esistente" },
+      { "id": 4, "name": "pii_check",            "description": "La colonna contiene dati personali?",     "auto_fix": false, "fix": "Chiede conferma e suggerisce masking" },
+      { "id": 5, "name": "naming_convention",    "description": "snake_case? No abbreviazioni non standard?", "auto_fix": true, "fix": "Corregge automaticamente" },
+      { "id": 6, "name": "fk_valid",             "description": "Se è una FK, l'entità target esiste?",    "auto_fix": false, "fix": "Mostra le entità disponibili" },
+      { "id": 7, "name": "standard_columns",     "description": "L'entità ha created_at, created_by, updated_at, updated_by?", "auto_fix": true, "fix": "Le aggiunge automaticamente" }
+    ]
+  },
+
+  "redis_patterns": [
+    { "use_case": "config_cache",    "entity": "configuration",       "structure": "HASH",   "key": "tenant:{tenant_id}:config",               "ttl": 300,  "strategy": "write-through" },
+    { "use_case": "session_store",   "entity": null,                  "structure": "STRING", "key": "session:{token}",                          "ttl": 3600, "strategy": "session" },
+    { "use_case": "notification_rt", "entity": "notification",        "structure": "PUBSUB", "key": "notify:{tenant_id}",                       "ttl": null, "strategy": "publish" },
+    { "use_case": "chat_recent",     "entity": "agent_chat_message",  "structure": "LIST",   "key": "chat:{conversation_id}:recent",            "ttl": 1800, "strategy": "write-through", "max_items": 50 },
+    { "use_case": "rate_limiting",   "entity": "agent_execution",     "structure": "STRING", "key": "agent:{agent_id}:calls:{minute}",          "ttl": 120,  "strategy": "increment" },
+    { "use_case": "feature_flags",   "entity": "configuration",       "structure": "HASH",   "key": "features:{tenant_id}",                     "ttl": 60,   "strategy": "write-through" }
+  ]
+}
