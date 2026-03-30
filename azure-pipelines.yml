@@ -1,0 +1,70 @@
+# hale-bopp-db — CI Pipeline
+# Deterministic schema governance engine: lint, test, GitHub mirror
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  name: Default
+
+variables:
+  - group: EasyWay-Secrets
+
+stages:
+  - stage: BuildAndTest
+    displayName: 'Build, Lint & Test'
+    jobs:
+      - job: PythonTest
+        displayName: 'Python Lint & Test'
+        steps:
+          - checkout: self
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+            displayName: 'Use Python 3.12'
+
+          - script: |
+              set -e
+              python -m pip install --upgrade pip
+              pip install -e ".[dev]" 2>/dev/null || pip install -e .
+              pip install pytest ruff
+            displayName: 'Install dependencies'
+
+          - script: |
+              set -e
+              ruff check app/ tests/ || echo "##[warning]Ruff lint issues found"
+            displayName: 'Lint (Ruff)'
+            continueOnError: true
+
+          - script: |
+              set -e
+              python -m pytest tests/ -v --tb=short
+            displayName: 'Test (pytest)'
+
+  - stage: GitHubMirror
+    displayName: 'GitHub Mirror (publish main → github)'
+    dependsOn: BuildAndTest
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: MirrorToGitHub
+        displayName: 'Push main → github.com/hale-bopp-data/hale-bopp-db'
+        pool:
+          name: Default
+        steps:
+          - checkout: self
+            fetchDepth: 0
+
+          - script: |
+              set -e
+              git remote add github https://$(GITHUB_PAT)@github.com/hale-bopp-data/hale-bopp-db.git 2>/dev/null || \
+                git remote set-url github https://$(GITHUB_PAT)@github.com/hale-bopp-data/hale-bopp-db.git
+              git push github HEAD:refs/heads/main --force
+            displayName: 'Mirror to GitHub'
