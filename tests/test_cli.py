@@ -7,6 +7,7 @@ import pytest
 from click.testing import CliRunner
 
 from app.cli import cli
+from app.version import __version__
 
 
 @pytest.fixture
@@ -36,7 +37,7 @@ def desired_schema(tmp_path):
 def test_version(runner):
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
-    assert "0.1.0" in result.output
+    assert __version__ in result.output
 
 
 @patch("app.cli.introspect_schema")
