@@ -1,0 +1,12 @@
+.git
+.gitignore
+node_modules
+.env*
+.secrets
+*.key
+*.pem
+.vscode
+*.md
+tests
+coverage
+.npm
