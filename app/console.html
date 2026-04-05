@@ -1,0 +1,1524 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hale-Bopp DB Console</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
+<style>
+  :root {
+    --void: #03050a;
+    --surface: #0b1120;
+    --surface-raised: #111a30;
+    --surface-hover: #172442;
+    --border: #1e2d4e;
+    --accent: #5e81ac;
+    --accent-bright: #81a1c1;
+    --gold: #ebcb8b;
+    --success: #a3be8c;
+    --error: #bf616a;
+    --warning: #d08770;
+    --text: #eceff4;
+    --text-dim: #d8dee9;
+    --text-dark: #4c566a;
+    --radius: 6px;
+    --font: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--void);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .header h1 {
+    font-size: 16px;
+    color: var(--accent-bright);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .header .badge {
+    background: rgba(163, 190, 140, 0.15);
+    color: var(--success);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid var(--success);
+  }
+  .header .conn-info {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .conn-input {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 12px;
+    width: 300px;
+    transition: all 0.2s;
+  }
+  .conn-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  /* Main layout */
+  .main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .nav-group { margin-bottom: 24px; }
+  .nav-title {
+    font-size: 11px;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    padding-left: 8px;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+  }
+  .btn:hover {
+    background: var(--surface-raised);
+    color: var(--text);
+  }
+  .btn.active {
+    background: rgba(94, 129, 172, 0.15);
+    color: var(--accent-bright);
+    border-color: rgba(94, 129, 172, 0.3);
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--void);
+    font-weight: bold;
+    text-align: center;
+    border-color: var(--accent);
+  }
+  .btn.primary:hover {
+    background: var(--accent-bright);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Content area */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--void);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    gap: 8px;
+  }
+  .toolbar-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: var(--font);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .toolbar-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .toolbar-btn.cta {
+    background: var(--gold);
+    color: var(--void);
+    font-weight: 600;
+    border-color: var(--gold);
+  }
+
+  .view-pane {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: none;
+  }
+  .view-pane.active { display: block; }
+
+  /* Generic styles */
+  .status-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .status-box.ok { border-color: var(--success); background: rgba(163, 190, 140, 0.05); }
+  .status-box.warn { border-color: var(--warning); background: rgba(208, 135, 112, 0.05); align-items:flex-start; text-align:left; }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .diff-add { color: var(--success); }
+  .diff-rm { color: var(--error); }
+  .diff-info { color: var(--accent-bright); }
+  .token.string { color: var(--gold); }
+  .token.number { color: var(--warning); }
+  .token.boolean { color: var(--accent); }
+
+  /* ER Diagram specific */
+  #mermaid-container {
+    background: #fff; /* Mermaid needs light bg for default theme contrast */
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow: auto;
+    text-align: center;
+  }
+
+  /* Loader */
+  .loader { display: none; }
+  .loader.active { display: inline-block; animation: pulse 1s infinite; }
+  @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+  /* Split Screen Studio */
+  .split-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+  .split-left {
+    width: 40%;
+    border-right: 1px solid var(--border);
+    background: var(--void);
+    display: flex;
+    flex-direction: column;
+  }
+  .split-right {
+    width: 60%;
+    background: #f6f8fc;
+    overflow: auto;
+    padding: 16px;
+    display: flex;
+    justify-content: stretch;
+    align-items: stretch;
+  }
+  #studio-graph {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at top left, rgba(94, 129, 172, 0.12), transparent 28%),
+      linear-gradient(180deg, #ffffff 0%, #eef3fb 100%);
+    border: 1px solid rgba(30, 45, 78, 0.08);
+  }
+  #jsonEditor {
+    flex: 1;
+    font-size: 13px;
+  }
+  .studio-toolbar {
+    background: var(--surface-raised);
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .studio-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .studio-legend {
+    display: flex;
+    gap: 10px;
+    padding: 8px 12px 0;
+    font-size: 10px;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-wrap: wrap;
+  }
+  .studio-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .studio-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Chat UI */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .chat-message {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .chat-message.user {
+    align-self: flex-end;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .chat-message.agent {
+    align-self: flex-start;
+    background: rgba(94, 129, 172, 0.1);
+    border: 1px solid var(--accent);
+    color: var(--text-dim);
+  }
+  .chat-message.agent p { margin-bottom: 8px; }
+  .chat-message.agent p:last-child { margin-bottom: 0; }
+  .chat-message.agent pre { margin: 8px 0; background: var(--void); padding: 8px; }
+  .chat-message.agent code { color: var(--gold); }
+  .suggestion-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .suggestion-btn {
+    background: rgba(163, 190, 140, 0.15);
+    color: var(--success);
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    font-family: var(--font);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .suggestion-btn:hover { background: rgba(163, 190, 140, 0.22); }
+  .suggestion-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+  
+  .chat-input-area {
+    display: flex;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    background: var(--void);
+    gap: 12px;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    border-radius: var(--radius);
+    font-family: inherit;
+    resize: none;
+    height: 60px;
+  }
+  .chat-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .chat-send-btn {
+    align-self: center;
+    background: var(--accent);
+    color: var(--void);
+    border: none;
+    border-radius: var(--radius);
+    padding: 0 24px;
+    height: 44px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .chat-send-btn:hover { background: var(--accent-bright); }
+  
+  .quick-questions {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .quick-question {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .quick-question:hover {
+    background: var(--surface-hover);
+    color: var(--accent-bright);
+    border-color: var(--accent-bright);
+  }
+
+  /* Reverse Engineer */
+  .reverse-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .reverse-panel h2 {
+    color: var(--accent-bright);
+    font-size: 14px;
+    margin-bottom: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .reverse-panel p {
+    color: var(--text-dark);
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .reverse-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .reverse-form label {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    display: block;
+  }
+  .reverse-form input, .reverse-form select {
+    width: 100%;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13px;
+    transition: border-color 0.2s;
+  }
+  .reverse-form input:focus, .reverse-form select:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .reverse-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .reverse-progress {
+    display: none;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .reverse-progress.active { display: block; }
+  .progress-steps { list-style: none; }
+  .progress-steps li {
+    padding: 6px 0;
+    font-size: 12px;
+    color: var(--text-dark);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .progress-steps li.done { color: var(--success); }
+  .progress-steps li.active { color: var(--gold); }
+  .progress-steps li.error { color: var(--error); }
+  .reverse-result {
+    display: none;
+  }
+  .reverse-result.visible { display: block; }
+  .reverse-stats {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+  .reverse-stat {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    text-align: center;
+  }
+  .reverse-stat .val {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent-bright);
+  }
+  .reverse-stat .lbl {
+    font-size: 11px;
+    color: var(--text-dark);
+    margin-top: 4px;
+  }
+  .reverse-load-btn {
+    background: linear-gradient(135deg, var(--success), #88c070);
+    color: var(--void);
+    border: none;
+    border-radius: var(--radius);
+    padding: 12px 28px;
+    font-family: var(--font);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .reverse-load-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 5, 10, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 20;
+  }
+  .modal-backdrop.visible { display: flex; }
+  .modal {
+    width: min(560px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(191, 97, 106, 0.12);
+  }
+  .modal-header h3 {
+    color: var(--error);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .modal-body {
+    padding: 20px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-size: 13px;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px 20px;
+  }
+  .modal-btn {
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-family: var(--font);
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    color: var(--text);
+  }
+  .modal-btn.danger {
+    background: var(--error);
+    border-color: var(--error);
+    color: var(--text);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>HALE-BOPP DB</h1>
+  <span class="badge">DETERMINISTIC CONSOLE</span>
+  <div class="conn-info">
+    <input type="text" id="connString" class="conn-input" placeholder="postgresql://user:pass@localhost:5432/db" value="postgresql://postgres:postgres@localhost:5432/postgres">
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="nav-group">
+      <div class="nav-title">Engine</div>
+      <button class="btn active" data-view="dashboard" onclick="switchView('dashboard')">Status Dashboard</button>
+      <button class="btn" data-view="dictionary" onclick="switchView('dictionary')">Data Dictionary</button>
+    </div>
+    
+    <div class="nav-group">
+      <div class="nav-title">Operations</div>
+      <button class="btn" data-view="studio" onclick="switchView('studio')">Schema Studio (DBML)</button>
+      <button class="btn" data-view="plan" onclick="switchView('plan')">Diff & Plan</button>
+      <button class="btn" data-view="drift" onclick="switchView('drift')">Drift Detection</button>
+      <button class="btn" data-view="maetel" onclick="switchView('maetel')">Maetel ER Diagram</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Intelligence</div>
+      <button class="btn" data-view="agent" onclick="switchView('agent')">Agentic Observer</button>
+      <button class="btn" data-view="reverse" onclick="switchView('reverse')">⟳ Reverse Engineer</button>
+      <button class="btn" data-view="seeder" onclick="switchView('seeder')">🧪 Mock Seeder</button>
+    </div>
+  </div>
+
+  <div class="content">
+    
+    <!-- Dashboard -->
+    <div id="view-dashboard" class="view-pane active">
+      <div class="status-box">
+        <h2 style="color:var(--accent-bright);margin-bottom:8px">Hale-Bopp Engine Ready</h2>
+        <p>Deterministic schema governance API is online.</p>
+        <span class="loader" id="mainLoader">Processing...</span>
+      </div>
+    </div>
+
+    <!-- Dictionary -->
+    <div id="view-dictionary" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="fetchDictionary()">Fetch Dictionary</button>
+      </div>
+      <div id="dictionary-out" style="margin-top:16px;">
+        <pre><code style="color:var(--text-dark)">Click "Fetch Dictionary" to load the active declarative schema JSON.</code></pre>
+      </div>
+    </div>
+
+    <!-- Diff & Plan -->
+    <div id="view-plan" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="runPlan()">Analyze Diff</button>
+        <button class="toolbar-btn cta" id="deployBtn" style="display:none" onclick="runDeploy()">Deploy Changes</button>
+      </div>
+      <div id="plan-out" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Schema Studio (Split Screen) -->
+    <div id="view-studio" class="view-pane" style="padding: 0; display: none;">
+      <div class="split-container">
+        <div class="split-left">
+          <div class="studio-toolbar">
+            <span>JSON Declarative Dictionary</span>
+            <div class="studio-actions">
+              <button class="toolbar-btn" onclick="runStudioVisualDrift()">Visual Drift</button>
+              <span id="studio-status" style="color: var(--success);">In sync</span>
+            </div>
+          </div>
+          <div id="jsonEditor"></div>
+        </div>
+        <div class="split-right">
+          <div style="width:100%;display:flex;flex-direction:column;gap:10px;">
+            <div class="studio-legend">
+              <span><i style="background:#5e81ac"></i> Invariant</span>
+              <span><i style="background:#a3be8c"></i> New</span>
+              <span><i style="background:#d08770"></i> Modified</span>
+              <span><i style="background:#bf616a"></i> Dropped</span>
+            </div>
+            <div id="studio-graph"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drift -->
+    <div id="view-drift" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="runDrift()">Detect Drift</button>
+      </div>
+      <div id="drift-out" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Maetel ER Diagram -->
+    <div id="view-maetel" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="runMaetel()">Introspect & Generate ER</button>
+      </div>
+      <div id="maetel-out" style="margin-top:16px;">
+         <div id="mermaid-container" style="display:none"><div class="mermaid" id="mermaid-graph"></div></div>
+      </div>
+    </div>
+
+    <!-- Agentic Observer -->
+    <div id="view-agent" class="view-pane" style="display: none; padding-bottom: 0;">
+       <div class="quick-questions">
+         <div class="quick-question" onclick="setQuestion('Quali tabelle del database potrebbero contenere PII (Personal Identifiable Information) in base ai nomi delle colonne?')">Privacy & PII</div>
+         <div class="quick-question" onclick="setQuestion('Se rinomino la colonna status in order_status nella tabella ORDERS, quali view o tabelle figlie si spaccano?')">Impact Analysis (ORDERS)</div>
+         <div class="quick-question" onclick="setQuestion('Quali sono le Tabelve Isola (Orphan Tables) che non hanno Foreign Key in entrata o in uscita?')">Orphan Tables</div>
+         <div class="quick-question" onclick="setQuestion('Trova le colonne che usano VARCHAR(255) ovunque come default pigro, ma che probabilmente dovrebbero essere ENUM.')">Tech Debt VARCHAR(255)</div>
+         <div class="quick-question" onclick="setQuestion('Ci sono colonne legate a dati sanitari che non hanno audit log trigger associato?')">Audit Logs Healthcare</div>
+       </div>
+
+       <div class="chat-container">
+         <div class="chat-history" id="chatHistory">
+            <div class="chat-message agent">
+               <strong>Hale-Bopp DB Agent:</strong> Ciao! Sono l'agente specializzato sul tuo schema database. Le mie conoscenze derivano in tempo reale dal data dictionary JSON e dalla struttura della connessione attiva.<br>Come posso aiutarti oggi?
+            </div>
+         </div>
+         <div class="chat-input-area">
+            <textarea id="chatInput" class="chat-input" placeholder="Chiedi informazioni sullo schema o richiedi modifiche..." onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"></textarea>
+            <button class="chat-send-btn" onclick="sendChatMessage()">Invia</button>
+         </div>
+       </div>
+    </div>
+    <!-- Reverse Engineer (PBI-6) -->
+    <div id="view-reverse" class="view-pane">
+      <div class="reverse-panel">
+        <h2>&#x27F3; Reverse Engineer</h2>
+        <p>Connettiti a qualsiasi database legacy e genera in automatico il Data Dictionary JSON di Hale-Bopp in 15 secondi.</p>
+        <div class="reverse-form">
+          <div>
+            <label>Connection String</label>
+            <input type="text" id="reverseConn" placeholder="postgresql://user:pass@host:5432/dbname" value="postgresql://postgres:postgres@localhost:5432/postgres">
+          </div>
+          <div>
+            <label>Schema Filter <span style="color:var(--text-dark)">(opzionale)</span></label>
+            <input type="text" id="reverseSchema" placeholder="public">
+          </div>
+        </div>
+        <div class="reverse-actions">
+          <button class="toolbar-btn cta" onclick="runReverseEngineer()" id="reverseBtn">&#x27F3; Reverse Engineer</button>
+          <span id="reverseSpinner" style="display:none;color:var(--gold);font-size:12px;">Scansione in corso...</span>
+        </div>
+        <div class="reverse-progress" id="reverseProgress">
+          <ul class="progress-steps">
+            <li id="step-connect"><span>&#9675;</span> Connessione al database...</li>
+            <li id="step-tables"><span>&#9675;</span> Lettura tabelle e schemi...</li>
+            <li id="step-columns"><span>&#9675;</span> Analisi colonne, tipi e constraint...</li>
+            <li id="step-fk"><span>&#9675;</span> Ricostruzione Foreign Keys...</li>
+            <li id="step-dict"><span>&#9675;</span> Generazione Data Dictionary JSON...</li>
+          </ul>
+        </div>
+        <div class="reverse-result" id="reverseResult">
+          <div class="reverse-stats" id="reverseStats"></div>
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+            <button class="reverse-load-btn" onclick="loadReverseIntoStudio()">&#x2705; Carica in Schema Studio</button>
+            <button class="toolbar-btn" onclick="downloadReversedDict()">&#11015; Scarica JSON</button>
+          </div>
+          <pre id="reversePreview" style="max-height:320px;overflow:auto;font-size:11px;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mock Seeder (PBI-7) -->
+    <div id="view-seeder" class="view-pane">
+      <div class="reverse-panel">
+        <h2>🧪 Mock Seeder</h2>
+        <p>Genera seed data JSON dal Data Dictionary rispettando l'ordine delle Foreign Key e i constraint principali.</p>
+        <div class="reverse-form">
+          <div>
+            <label>Rows Per Table</label>
+            <input type="number" id="seedRows" min="1" max="500" value="10">
+          </div>
+          <div>
+            <label>Locale</label>
+            <input type="text" id="seedLocale" value="it_IT">
+          </div>
+        </div>
+        <div class="reverse-actions">
+          <button class="toolbar-btn cta" onclick="runSeedGenerate()" id="seedBtn">Generate Mock Data</button>
+          <span id="seedSpinner" style="display:none;color:var(--gold);font-size:12px;">Generazione in corso...</span>
+        </div>
+        <div class="reverse-result visible" id="seedResult">
+          <div class="reverse-stats" id="seedStats"></div>
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+            <button class="toolbar-btn" onclick="downloadSeedData()">⬇ Seed JSON</button>
+          </div>
+          <pre id="seedPreview" style="max-height:360px;overflow:auto;font-size:11px;">Premi "Generate Mock Data" per creare il seed dal dizionario corrente.</pre>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</div>
+
+<div id="dangerModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Destructive Apply Warning</h3>
+    </div>
+    <div class="modal-body" id="dangerModalMessage"></div>
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="closeDangerModal()">Cancel</button>
+      <button class="modal-btn danger" onclick="confirmDangerModal()">Apply Anyway</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+  // Currently loaded dictionary for operations
+  let currentDictionary = null;
+  let currentPlan = null;
+  let pendingDangerAction = null;
+  let studioNetwork = null;
+  let studioDriftMap = new Map();
+  let lastSeedData = null;
+
+  async function api(path, method = 'GET', body = null) {
+      document.getElementById('mainLoader').classList.add('active');
+      try {
+          const options = { method, headers: {} };
+          if (body) {
+              options.headers['Content-Type'] = 'application/json';
+              options.body = JSON.stringify(body);
+          }
+          const res = await fetch('/api/v1' + path, options);
+          if (!res.ok) throw new Error(await res.text());
+          return await res.json();
+      } catch (err) {
+          alert("API Error: " + err.message);
+          console.error(err);
+          throw err;
+      } finally {
+          document.getElementById('mainLoader').classList.remove('active');
+      }
+  }
+
+  function getConn() {
+      return document.getElementById('connString').value.trim();
+  }
+
+  function switchView(id) {
+      document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.sidebar .btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('view-' + id).classList.add('active');
+      document.querySelector(`.sidebar .btn[data-view="${id}"]`).classList.add('active');
+  }
+
+  function formatJSON(obj) {
+      return JSON.stringify(obj, null, 2)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+              let cls = 'number';
+              if (/^"/.test(match)) cls = /:$/.test(match) ? 'key' : 'string';
+              else if (/true|false/.test(match)) cls = 'boolean';
+              else if (/null/.test(match)) cls = 'null';
+              return `<span class="token ${cls}">${match}</span>`;
+          });
+  }
+
+  function escapeHTML(value) {
+      return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+  }
+
+  function getEntitySchema(entity) {
+      return entity.schema || entity.schema_name || 'public';
+  }
+
+  function getEntityKey(entity) {
+      return `${getEntitySchema(entity)}.${entity.name}`;
+  }
+
+  function normalizeTableName(name) {
+      return String(name || '').replace(/^dbo\./i, '').replace(/^public\./i, match => match.toLowerCase());
+  }
+
+  function summarizeEntity(entity) {
+      const columns = entity.columns || [];
+      const sample = columns.slice(0, 4).map(column => `${column.name}: ${column.type || '?'}`);
+      const more = columns.length > 4 ? `\n+ ${columns.length - 4} more columns` : '';
+      return sample.join('\n') + more;
+  }
+
+  function getNodeStyleForState(state) {
+      switch (state) {
+          case 'new':
+              return { color: '#a3be8c', border: '#7aa35d' };
+          case 'modified':
+              return { color: '#d08770', border: '#b66b54' };
+          case 'dropped':
+              return { color: '#bf616a', border: '#9d4550' };
+          default:
+              return { color: '#5e81ac', border: '#45688d' };
+      }
+  }
+
+  function buildStudioGraphData(dictionary) {
+      const entities = (dictionary.entities || []).filter(entity => entity && entity.name);
+      const entityKeys = new Set(entities.map(getEntityKey));
+      const nodes = entities.map(entity => {
+          const key = getEntityKey(entity);
+          const driftState = studioDriftMap.get(key) || studioDriftMap.get(entity.name) || 'unchanged';
+          const style = getNodeStyleForState(driftState);
+          return {
+              id: key,
+              label: `${entity.name}\n${(entity.columns || []).length} cols`,
+              title: escapeHTML(`${key}\n${summarizeEntity(entity)}`),
+              shape: 'box',
+              margin: 14,
+              font: { face: 'JetBrains Mono, monospace', color: '#0b1120', size: 13, multi: 'md' },
+              color: {
+                  background: style.color,
+                  border: style.border,
+                  highlight: { background: style.color, border: '#0b1120' },
+              },
+              borderWidth: 2,
+              shadow: { enabled: false },
+          };
+      });
+
+      const edges = [];
+      const seen = new Set();
+      entities.forEach(entity => {
+          const fromKey = getEntityKey(entity);
+          (entity.columns || []).forEach(column => {
+              if (!column.fk) return;
+              const parts = String(column.fk).split('.');
+              let targetSchema = getEntitySchema(entity);
+              let targetTable = '';
+              let targetColumn = '';
+              if (parts.length === 2) {
+                  [targetTable, targetColumn] = parts;
+              } else if (parts.length === 3) {
+                  [targetSchema, targetTable, targetColumn] = parts;
+              }
+              const targetKey = `${targetSchema}.${targetTable}`;
+              if (!entityKeys.has(targetKey)) return;
+              const edgeKey = `${fromKey}->${targetKey}:${column.name}`;
+              if (seen.has(edgeKey)) return;
+              seen.add(edgeKey);
+              edges.push({
+                  id: edgeKey,
+                  from: fromKey,
+                  to: targetKey,
+                  label: column.name,
+                  arrows: 'to',
+                  color: { color: '#7f8aa3', highlight: '#5e81ac' },
+                  font: { face: 'JetBrains Mono, monospace', size: 10, color: '#4c566a' },
+                  smooth: { type: 'cubicBezier', roundness: 0.25 },
+              });
+          });
+      });
+
+      return { nodes, edges };
+  }
+
+  function renderStudioNetwork(dictionary) {
+      const container = document.getElementById('studio-graph');
+      if (!container) return;
+      const graph = buildStudioGraphData(dictionary);
+      const data = {
+          nodes: new vis.DataSet(graph.nodes),
+          edges: new vis.DataSet(graph.edges),
+      };
+      const options = {
+          autoResize: true,
+          layout: {
+              improvedLayout: true,
+              hierarchical: false,
+          },
+          physics: {
+              stabilization: { iterations: 180 },
+              barnesHut: { gravitationalConstant: -4600, springLength: 160, damping: 0.22 },
+          },
+          interaction: {
+              hover: true,
+              navigationButtons: true,
+              keyboard: true,
+          },
+      };
+
+      if (!studioNetwork) {
+          studioNetwork = new vis.Network(container, data, options);
+      } else {
+          studioNetwork.setData(data);
+          studioNetwork.setOptions(options);
+      }
+      setTimeout(() => {
+          if (studioNetwork) studioNetwork.fit({ animation: { duration: 280, easingFunction: 'easeInOutQuad' } });
+      }, 80);
+  }
+
+  function buildDriftStateMap(report) {
+      const map = new Map();
+      const rank = { unchanged: 0, new: 1, modified: 2, dropped: 3 };
+      (report.items || []).forEach(item => {
+          let target = item.object_name || '';
+          let state = 'modified';
+          if (item.drift_type === 'missing_table') state = 'new';
+          else if (item.drift_type === 'extra_table') state = 'dropped';
+          else if (['missing_column', 'type_mismatch', 'missing_index', 'missing_rls', 'missing_masking', 'extra_index', 'extra_column'].includes(item.drift_type)) state = 'modified';
+
+          if (item.drift_type !== 'missing_table' && item.drift_type !== 'extra_table') {
+              const parts = String(target).split('.');
+              if (parts.length >= 3) {
+                  target = `${parts[0]}.${parts[1]}`;
+              } else if (parts.length >= 2) {
+                  target = `${parts[0]}.${parts[1]}`;
+              }
+          }
+
+          const current = map.get(target) || 'unchanged';
+          if (rank[state] > rank[current]) {
+              map.set(target, state);
+          }
+      });
+      return map;
+  }
+
+  function setCurrentDictionary(dict, syncEditor = true) {
+      currentDictionary = dict;
+      if (syncEditor && editor) {
+          editor.setValue(JSON.stringify(dict, null, 2), -1);
+          renderStudioDiagram();
+      }
+      const dictionaryOut = document.getElementById('dictionary-out');
+      if (dictionaryOut && document.getElementById('view-dictionary').classList.contains('active')) {
+          dictionaryOut.innerHTML = `<pre><code>${formatJSON(dict)}</code></pre>`;
+      }
+  }
+
+  function extractSuggestionPayloads(text) {
+      const payloads = [];
+      const matches = text.matchAll(/```json\s*([\s\S]*?)```/gi);
+      for (const match of matches) {
+          try {
+              const parsed = JSON.parse(match[1]);
+              if (parsed && parsed.entity && parsed.change) {
+                  payloads.push(parsed);
+              }
+          } catch (err) {
+              console.debug('Skipping non-actionable JSON block', err);
+          }
+      }
+      return payloads;
+  }
+
+  function appendSuggestionActions(container, suggestions) {
+      const actions = document.createElement('div');
+      actions.className = 'suggestion-actions';
+
+      suggestions.forEach((suggestion, index) => {
+          const btn = document.createElement('button');
+          btn.className = 'suggestion-btn';
+          btn.textContent = `Applica al Dizionario ${index + 1}`;
+          btn.onclick = () => applySuggestionToDictionary(suggestion);
+          actions.appendChild(btn);
+      });
+
+      const badge = document.createElement('div');
+      badge.className = 'suggestion-badge';
+      badge.textContent = 'Testudo: dictionary only';
+      container.appendChild(actions);
+      container.appendChild(badge);
+  }
+
+  function setSeedStats(tableCount, rowCount) {
+      document.getElementById('seedStats').innerHTML =
+          stat(tableCount, 'Tabelle') +
+          stat(rowCount, 'Righe') +
+          stat(lastSeedData ? Object.keys(lastSeedData).length : 0, 'Payload');
+  }
+
+  async function ensureDictionary() {
+      if (!currentDictionary) {
+          currentDictionary = await api('/dictionary');
+      }
+      return currentDictionary;
+  }
+
+  async function fetchDictionary() {
+      const data = await ensureDictionary();
+      document.getElementById('dictionary-out').innerHTML = `<pre><code>${formatJSON(data)}</code></pre>`;
+  }
+
+  async function runPlan() {
+      const dict = await ensureDictionary();
+      const out = document.getElementById('plan-out');
+      out.innerHTML = '<i>Computing deterministic diff...</i>';
+      document.getElementById('deployBtn').style.display = 'none';
+      
+      const res = await api('/plan', 'POST', {
+          connection_string: getConn(),
+          dictionary: dict,
+          engine: 'postgresql'
+      });
+      
+      currentPlan = res;
+      
+      if (res.changes.length === 0) {
+          out.innerHTML = `<div class="status-box ok">Schema is fully synchronized. Zero diff.</div>`;
+      } else {
+          document.getElementById('deployBtn').style.display = 'inline-block';
+          let html = `<div class="status-box warn" style="margin-bottom:16px;">
+            <h3 style="color:var(--warning)">Changes Detected (Risk: ${res.risk_level})</h3>
+            <p>Hash: ${res.plan_hash}</p>
+          </div><pre>`;
+          res.changes.forEach(c => {
+             html += `<span class="diff-info">-- [${c.change_type}] ${c.entity_type} ${c.entity_name}</span>\n`;
+             html += `<span class="diff-add">${c.sql_up}</span>\n\n`;
+          });
+          html += `</pre>`;
+          out.innerHTML = html;
+      }
+  }
+
+  async function runDeploy() {
+      if (!currentPlan) return;
+      const destructiveChanges = currentPlan.changes.filter(change =>
+          ['drop_table', 'drop_column'].includes(change.change_type)
+      );
+
+      if (destructiveChanges.length > 0) {
+          const lines = destructiveChanges.map(change => `- ${change.change_type}: ${change.object_name}`);
+          openDangerModal(
+              `This plan contains destructive changes.\n\n${lines.join('\n')}\n\nReview the rollback plan before applying.`,
+              executeDeploy
+          );
+          return;
+      }
+
+      if (!confirm("Are you sure you want to apply these changes?")) return;
+      await executeDeploy();
+  }
+
+  async function executeDeploy() {
+      const res = await api('/apply', 'POST', {
+          connection_string: getConn(),
+          plan: currentPlan,
+          dry_run: false
+      });
+
+      if (res.applied) {
+          alert('Successfully deployed!');
+          runPlan();
+      } else {
+          alert('Deploy returned false.');
+      }
+  }
+
+  function openDangerModal(message, onConfirm) {
+      pendingDangerAction = onConfirm;
+      document.getElementById('dangerModalMessage').textContent = message;
+      document.getElementById('dangerModal').classList.add('visible');
+  }
+
+  function closeDangerModal() {
+      pendingDangerAction = null;
+      document.getElementById('dangerModal').classList.remove('visible');
+  }
+
+  async function confirmDangerModal() {
+      const action = pendingDangerAction;
+      closeDangerModal();
+      if (action) {
+          await action();
+      }
+  }
+
+  async function runDrift() {
+      const dict = await ensureDictionary();
+      const out = document.getElementById('drift-out');
+      out.innerHTML = '<i>Inspecting database for out-of-band changes...</i>';
+      
+      const res = await api('/drift/dictionary', 'POST', {
+          connection_string: getConn(),
+          dictionary: dict,
+          engine: 'postgresql'
+      });
+      
+      if (!res.has_drift) {
+          out.innerHTML = `<div class="status-box ok">No drift detected. Database matches declarative truth.</div>`;
+      } else {
+          out.innerHTML = `<div class="status-box warn"><pre>${formatJSON(res.items)}</pre></div>`;
+      }
+  }
+
+  async function runStudioVisualDrift() {
+      const statusEl = document.getElementById('studio-status');
+      try {
+          const dict = editor ? JSON.parse(editor.getValue()) : await ensureDictionary();
+          statusEl.textContent = 'Fetching drift...';
+          statusEl.style.color = 'var(--warning)';
+          const res = await api('/drift/dictionary', 'POST', {
+              connection_string: getConn(),
+              dictionary: dict,
+              engine: 'postgresql'
+          });
+          studioDriftMap = buildDriftStateMap(res);
+          renderStudioNetwork(dict);
+          statusEl.textContent = res.has_drift ? 'Visual drift loaded' : 'No drift';
+          statusEl.style.color = res.has_drift ? 'var(--warning)' : 'var(--success)';
+      } catch (err) {
+          statusEl.textContent = 'Drift error';
+          statusEl.style.color = 'var(--error)';
+      }
+  }
+
+  async function runMaetel() {
+      const outContainer = document.getElementById('maetel-out');
+      const mc = document.getElementById('mermaid-container');
+      const mg = document.getElementById('mermaid-graph');
+      
+      mg.innerHTML = '<i>Boarding the Galaxy Express 999...</i>';
+      mc.style.display = 'block';
+
+      try {
+          const res = await api('/schema/maetel', 'POST', {
+              connection_string: getConn(),
+              format: 'mermaid',
+              schema_name: 'public'
+          });
+          
+          mg.innerHTML = res.content;
+          mg.removeAttribute('data-processed'); // force re-render
+          mermaid.init(undefined, mg);
+      } catch(e) {
+          mg.innerHTML = `<span class="diff-rm">Failed to generate ER diagram</span>`;
+      }
+  }
+
+  // --- Agentic Observer Chat UI ---
+
+  function setQuestion(text) {
+      document.getElementById('chatInput').value = text;
+      document.getElementById('chatInput').focus();
+  }
+
+  function appendChat(role, text) {
+      const history = document.getElementById('chatHistory');
+      const div = document.createElement('div');
+      div.className = 'chat-message ' + role;
+      
+      if (role === 'agent') {
+          div.innerHTML = marked.parse(text);
+          const suggestions = extractSuggestionPayloads(text);
+          if (suggestions.length > 0) {
+              appendSuggestionActions(div, suggestions);
+          }
+      } else {
+          div.textContent = text;
+      }
+      
+      history.appendChild(div);
+      history.scrollTop = history.scrollHeight;
+  }
+
+  async function applySuggestionToDictionary(suggestion) {
+      const dict = editor ? JSON.parse(editor.getValue()) : await ensureDictionary();
+      const res = await api('/agent/apply-suggestion', 'POST', {
+          dictionary: dict,
+          entity: suggestion.entity,
+          change: suggestion.change,
+          field: suggestion.field || null,
+          rename_to: suggestion.rename_to || null
+      });
+
+      setCurrentDictionary(res.updated_dictionary);
+      switchView('studio');
+
+      const warningNote = res.warnings && res.warnings.length
+          ? `\nWarnings:\n- ${res.warnings.join('\n- ')}`
+          : '';
+      alert(`${res.summary}\nRisk: ${res.risk}${warningNote}`);
+  }
+
+  async function sendChatMessage() {
+      const inputEl = document.getElementById('chatInput');
+      const question = inputEl.value.trim();
+      if (!question) return;
+
+      appendChat('user', question);
+      inputEl.value = '';
+      
+      // Temporary typing indicator
+      const history = document.getElementById('chatHistory');
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'chat-message agent typing-indicator';
+      typingDiv.innerHTML = '<span class="loader active">Analizzando il dizionario...</span>';
+      history.appendChild(typingDiv);
+      history.scrollTop = history.scrollHeight;
+
+      try {
+          const dict = await ensureDictionary();
+          const res = await api('/agent/ask', 'POST', {
+              connection_string: getConn(),
+              dictionary: dict,
+              question: question
+          });
+          
+          typingDiv.remove();
+          appendChat('agent', res.answer);
+      } catch(err) {
+          typingDiv.remove();
+          appendChat('agent', '**Errore**: ' + err.message);
+      }
+  }
+
+  // --- Schema Studio Logic ---
+  let editor = null;
+  let studioTimeout = null;
+
+  async function initStudio() {
+      if (!editor) {
+          editor = ace.edit("jsonEditor");
+          editor.setTheme("ace/theme/tomorrow_night_eighties");
+          editor.session.setMode("ace/mode/json");
+          editor.setOptions({
+              tabSize: 2,
+              useSoftTabs: true,
+              showPrintMargin: false,
+          });
+
+          const dict = await ensureDictionary();
+          editor.setValue(JSON.stringify(dict, null, 2), -1);
+
+          editor.session.on('change', function() {
+              document.getElementById('studio-status').textContent = 'Typing...';
+              document.getElementById('studio-status').style.color = 'var(--text-dim)';
+              clearTimeout(studioTimeout);
+              studioTimeout = setTimeout(renderStudioDiagram, 800); // 800ms debounce
+          });
+          
+          // Initial render
+          renderStudioDiagram();
+      }
+  }
+
+  async function renderStudioDiagram() {
+      const statusEl = document.getElementById('studio-status');
+      try {
+          const rawText = editor.getValue();
+          const parsedDict = JSON.parse(rawText);
+          currentDictionary = parsedDict;
+          statusEl.textContent = 'Rendering...';
+          renderStudioNetwork(parsedDict);
+          
+          statusEl.textContent = 'In sync';
+          statusEl.style.color = 'var(--success)';
+      } catch (err) {
+          statusEl.textContent = 'Parse Error';
+          statusEl.style.color = 'var(--error)';
+      }
+  }
+
+  // Override switchView to initialize components if needed
+  const baseSwitchView = switchView;
+  switchView = function(id) {
+      baseSwitchView(id);
+      if (id === 'studio') {
+          initStudio();
+      }
+  };
+
+
+  // ---- PBI-6: Reverse Engineer ----
+  let lastReversedDict = null;
+
+  function setStep(id, state) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = state;
+    const icons = { active: '&#9654;', done: '&#10003;', error: '&#10007;', '': '&#9675;' };
+    el.innerHTML = '<span>' + (icons[state] || '&#9675;') + '</span> ' + el.textContent.trim();
+  }
+
+  async function runReverseEngineer() {
+    const conn = document.getElementById('reverseConn').value.trim();
+    const schema = document.getElementById('reverseSchema').value.trim() || null;
+    if (!conn) { alert('Inserisci una connection string.'); return; }
+
+    // Reset UI
+    document.getElementById('reverseProgress').classList.add('active');
+    document.getElementById('reverseResult').classList.remove('visible');
+    document.getElementById('reverseSpinner').style.display = 'inline';
+    document.getElementById('reverseBtn').disabled = true;
+    lastReversedDict = null;
+
+    ['step-connect','step-tables','step-columns','step-fk','step-dict'].forEach(id => setStep(id, ''));
+
+    try {
+      setStep('step-connect', 'active');
+      await new Promise(r => setTimeout(r, 200));
+      setStep('step-connect', 'done');
+
+      setStep('step-tables', 'active');
+      await new Promise(r => setTimeout(r, 300));
+
+      setStep('step-columns', 'active');
+      setStep('step-tables', 'done');
+
+      const payload = { connection_string: conn };
+      if (schema) payload.schema_filter = schema;
+
+      const data = await api('/introspect/reverse', 'POST', payload);
+
+      setStep('step-columns', 'done');
+      setStep('step-fk', 'active');
+      await new Promise(r => setTimeout(r, 150));
+      setStep('step-fk', 'done');
+      setStep('step-dict', 'active');
+      await new Promise(r => setTimeout(r, 100));
+      setStep('step-dict', 'done');
+
+      lastReversedDict = data.dictionary;
+      const entities = lastReversedDict.entities || [];
+      const totalCols = entities.reduce((s, e) => s + (e.columns || []).length, 0);
+      const totalFks = entities.reduce((s, e) => s + (e.columns || []).filter(c => c.fk).length, 0);
+
+      // Stats
+      document.getElementById('reverseStats').innerHTML =
+        stat(entities.length, 'Tabelle') +
+        stat(totalCols, 'Colonne') +
+        stat(totalFks, 'Foreign Keys');
+
+      document.getElementById('reversePreview').textContent =
+        JSON.stringify(lastReversedDict, null, 2).substring(0, 4000) +
+        (JSON.stringify(lastReversedDict).length > 4000 ? '\n...' : '');
+
+      document.getElementById('reverseResult').classList.add('visible');
+
+    } catch(err) {
+      ['step-connect','step-tables','step-columns','step-fk','step-dict'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.className === 'active') setStep(id, 'error');
+      });
+    } finally {
+      document.getElementById('reverseSpinner').style.display = 'none';
+      document.getElementById('reverseBtn').disabled = false;
+    }
+  }
+
+  function stat(val, lbl) {
+    return `<div class="reverse-stat"><div class="val">${val}</div><div class="lbl">${lbl}</div></div>`;
+  }
+
+  function loadReverseIntoStudio() {
+    if (!lastReversedDict) return;
+    setCurrentDictionary(lastReversedDict);
+    switchView('studio');
+  }
+
+  function downloadReversedDict() {
+    if (!lastReversedDict) return;
+    const blob = new Blob([JSON.stringify(lastReversedDict, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'db-data-dictionary.json';
+    a.click();
+  }
+
+  async function runSeedGenerate() {
+    const rows = parseInt(document.getElementById('seedRows').value || '10', 10);
+    const locale = document.getElementById('seedLocale').value.trim() || 'it_IT';
+    document.getElementById('seedSpinner').style.display = 'inline';
+    document.getElementById('seedBtn').disabled = true;
+
+    try {
+      const dict = editor ? JSON.parse(editor.getValue()) : await ensureDictionary();
+      const res = await api('/seed/generate', 'POST', {
+          dictionary: dict,
+          rows_per_table: rows,
+          locale: locale
+      });
+      lastSeedData = res.seed_data;
+      setSeedStats(res.stats.table_count || 0, res.stats.row_count || 0);
+      document.getElementById('seedPreview').textContent = JSON.stringify(lastSeedData, null, 2).substring(0, 6000);
+    } finally {
+      document.getElementById('seedSpinner').style.display = 'none';
+      document.getElementById('seedBtn').disabled = false;
+    }
+  }
+
+  function downloadSeedData() {
+    if (!lastSeedData) return;
+    const blob = new Blob([JSON.stringify(lastSeedData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mock-seed-data.json';
+    a.click();
+  }
+</script>
+</body>
+</html>
+
