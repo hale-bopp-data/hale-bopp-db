@@ -6,7 +6,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.core.compile import DataDictionary, compile_and_write, load_dictionary
 from app.core.deploy import deploy_changes
@@ -15,6 +15,7 @@ from app.core.drift_detect import detect_drift_from_schemas
 from app.core.introspect import introspect_schema
 from app.core.maetel import to_json as maetel_to_json
 from app.core.maetel import to_mermaid as maetel_to_mermaid
+from app.core.seed import generate_seed_data
 from app.core.plan import (
     apply_plan,
     create_plan,
@@ -42,12 +43,18 @@ from app.models.schemas import (
     MaetelResponse,
     PlanRequest,
     PlanResult,
+    PRCommentRequest,
+    PRCommentResponse,
     ValidateRequest,
     ValidateResponse,
     AgentAskRequest,
     AgentAskResponse,
+    ApplySuggestionRequest,
+    ApplySuggestionResponse,
     ReverseEngineerRequest,
     ReverseEngineerResponse,
+    SeedRequest,
+    SeedResponse,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -58,6 +65,164 @@ VERSION = "0.2.0"
 import os
 _DEFAULT_DICT = Path(__file__).resolve().parent.parent.parent / "data" / "db-data-dictionary.json"
 _DICT_PATH = Path(os.environ.get("HB_DICTIONARY_PATH", str(_DEFAULT_DICT)))
+
+
+def _find_entity(dictionary: dict, entity_name: str) -> dict | None:
+    for entity in dictionary.get("entities", []):
+        if entity.get("name") == entity_name or entity.get("id") == entity_name:
+            return entity
+    return None
+
+
+def _risk_from_change(change: str) -> tuple[str, list[str]]:
+    destructive = {"drop_table", "drop_column"}
+    if change in destructive:
+        return "high", [
+            "Destructive change detected.",
+            "Review the diff and rollback plan before pressing Apply.",
+        ]
+    if change in {"rename_column"}:
+        return "medium", ["Renames may require downstream contract checks."]
+    return "low", []
+
+
+def _apply_suggestion(req: ApplySuggestionRequest) -> ApplySuggestionResponse:
+    updated = json.loads(json.dumps(req.dictionary))
+    entities = updated.setdefault("entities", [])
+    entity = _find_entity(updated, req.entity)
+    risk, warnings = _risk_from_change(req.change)
+
+    if req.change == "add_column":
+        if entity is None:
+            raise HTTPException(404, f"Entity '{req.entity}' not found")
+        if req.field is None or not req.field.type:
+            raise HTTPException(400, "Field with name and type is required for add_column")
+        columns = entity.setdefault("columns", [])
+        if any(col.get("name") == req.field.name for col in columns):
+            raise HTTPException(409, f"Column '{req.field.name}' already exists in '{req.entity}'")
+        columns.append(req.field.model_dump(exclude_none=True))
+        summary = f"Added column '{req.field.name}' to '{entity['name']}'."
+
+    elif req.change == "drop_column":
+        if entity is None:
+            raise HTTPException(404, f"Entity '{req.entity}' not found")
+        if req.field is None:
+            raise HTTPException(400, "Field name is required for drop_column")
+        columns = entity.setdefault("columns", [])
+        remaining = [col for col in columns if col.get("name") != req.field.name]
+        if len(remaining) == len(columns):
+            raise HTTPException(404, f"Column '{req.field.name}' not found in '{req.entity}'")
+        entity["columns"] = remaining
+        summary = f"Dropped column '{req.field.name}' from '{entity['name']}'."
+
+    elif req.change == "rename_column":
+        if entity is None:
+            raise HTTPException(404, f"Entity '{req.entity}' not found")
+        if req.field is None or not req.rename_to:
+            raise HTTPException(400, "Field name and rename_to are required for rename_column")
+        target_col = None
+        for column in entity.setdefault("columns", []):
+            if column.get("name") == req.field.name:
+                target_col = column
+                break
+        if target_col is None:
+            raise HTTPException(404, f"Column '{req.field.name}' not found in '{req.entity}'")
+        target_col["name"] = req.rename_to
+        summary = f"Renamed column '{req.field.name}' to '{req.rename_to}' in '{entity['name']}'."
+
+    elif req.change == "add_table":
+        if entity is not None:
+            raise HTTPException(409, f"Entity '{req.entity}' already exists")
+        new_entity = {
+            "name": req.entity,
+            "schema": "public",
+            "type": "TABLE",
+            "columns": [],
+        }
+        if req.field is not None:
+            if not req.field.type:
+                raise HTTPException(400, "Field type is required when bootstrapping a new table")
+            new_entity["columns"].append(req.field.model_dump(exclude_none=True))
+        entities.append(new_entity)
+        summary = f"Added table '{req.entity}'."
+
+    elif req.change == "drop_table":
+        if entity is None:
+            raise HTTPException(404, f"Entity '{req.entity}' not found")
+        updated["entities"] = [
+            candidate for candidate in entities
+            if candidate.get("name") != entity.get("name") and candidate.get("id") != entity.get("id")
+        ]
+        summary = f"Dropped table '{entity['name']}'."
+
+    else:
+        raise HTTPException(400, f"Unsupported suggestion change '{req.change}'")
+
+    return ApplySuggestionResponse(
+        updated_dictionary=updated,
+        applied=True,
+        summary=summary,
+        risk=risk,
+        warnings=warnings,
+    )
+
+
+def _format_change_summary(change_type: str, count: int) -> str:
+    labels = {
+        "add_table": "new tables",
+        "add_column": "new columns",
+        "alter_column": "modified columns",
+        "drop_column": "dropped columns",
+        "drop_table": "dropped tables",
+        "add_index": "new indexes",
+        "drop_index": "dropped indexes",
+        "add_constraint": "new constraints",
+        "drop_constraint": "dropped constraints",
+    }
+    label = labels.get(change_type, change_type.replace("_", " "))
+    return f"- {'⚠️' if 'drop' in change_type else '✅'} {count} {label}"
+
+
+def _build_pr_comment_payload(req: PRCommentRequest) -> PRCommentResponse:
+    dd = DataDictionary.model_validate(req.dictionary)
+    desired = dictionary_to_desired(dd, engine=req.engine, schema_filter=req.schema_filter)
+    actual = introspect_schema(req.connection_string, schema=req.schema_filter)
+    changes, risk = compute_diff(actual, desired)
+
+    from collections import Counter
+
+    summary = dict(Counter(change.change_type.value for change in changes))
+    lines = ["## Hale-Bopp Schema Analysis"]
+
+    if not changes:
+        lines.append("- ✅ No schema changes detected.")
+        return PRCommentResponse(markdown="\n".join(lines), risk_level=risk, summary=summary, warnings=[])
+
+    for change_type, count in summary.items():
+        lines.append(_format_change_summary(change_type, count))
+
+    warnings: list[str] = []
+    destructive = [
+        change for change in changes
+        if change.change_type.value in {"drop_table", "drop_column"}
+    ]
+    if destructive:
+        lines.append("")
+        lines.append("### Destructive changes")
+        for change in destructive:
+            lines.append(f"- WARNING: `{change.object_name}` via `{change.change_type.value}`")
+        warnings.append("Destructive schema changes detected. Human review required before apply.")
+
+    lines.append("")
+    lines.append(f"- Risk level: `{risk.value}`")
+    lines.append("- Source of truth: dictionary JSON only, execution remains deterministic.")
+
+    return PRCommentResponse(
+        markdown="\n".join(lines),
+        risk_level=risk,
+        summary=summary,
+        warnings=warnings,
+    )
 
 
 # --- Dictionary (serve the source-of-truth JSON) ---
@@ -354,4 +519,31 @@ def agent_ask(req: AgentAskRequest):
             ),
             metadata={"error": str(exc)},
         )
+
+
+@router.post("/agent/apply-suggestion", response_model=ApplySuggestionResponse)
+def agent_apply_suggestion(req: ApplySuggestionRequest):
+    """
+    Testudo Formation: apply only logical dictionary mutations suggested by the LLM.
+    No SQL or direct DB execution is allowed here.
+    """
+    return _apply_suggestion(req)
+
+
+@router.post("/git/pr-comment-payload", response_model=PRCommentResponse)
+def git_pr_comment_payload(req: PRCommentRequest):
+    """Build markdown payload for PR comment bots from a deterministic schema diff."""
+    return _build_pr_comment_payload(req)
+
+
+@router.post("/seed/generate", response_model=SeedResponse)
+def seed_generate(req: SeedRequest):
+    """Generate mock data from the data dictionary, respecting FK order and basic constraints."""
+    dd = DataDictionary.model_validate(req.dictionary)
+    seed_data, stats = generate_seed_data(
+        dd,
+        rows_per_table=req.rows_per_table,
+        locale=req.locale,
+    )
+    return SeedResponse(seed_data=seed_data, stats=stats)
 

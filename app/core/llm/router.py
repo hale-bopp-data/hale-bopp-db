@@ -42,11 +42,19 @@ Rules (Testudo Formation):
 - You CAN analyze relationships, data types, PII fields, orphan tables, impact analysis
 - You CAN suggest changes as modifications to the JSON dictionary fields only
 - Your output must be clear, structured Markdown
+- If you suggest a change, emit a fenced ```json block that the UI can apply safely
 
 When asked to suggest schema changes, format them as:
 ```json
-{ "entity": "<table_name>", "change": "<description>", "field": "<field_to_modify>" }
+{
+  "entity": "<table_name>",
+  "change": "add_column | drop_column | rename_column | add_table | drop_table",
+  "field": { "name": "<column_name>", "type": "<logical_type>" },
+  "rename_to": "<new_column_name_if_needed>"
+}
 ```
+
+Never output SQL. Only propose dictionary mutations in JSON.
 """.strip()
 
 

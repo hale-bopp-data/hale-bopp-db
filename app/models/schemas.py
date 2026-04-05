@@ -236,3 +236,60 @@ class ReverseEngineerRequest(BaseModel):
 class ReverseEngineerResponse(BaseModel):
     dictionary: dict[str, Any]
 
+
+# --- Testudo Formation: Apply Suggestion (PBI-3) ---
+
+class SuggestionField(BaseModel):
+    """A single column to add, modify or drop."""
+    name: str
+    type: str | None = None
+    nullable: bool = True
+    default: str | None = None
+    fk: str | None = None
+    description: str | None = None
+
+class ApplySuggestionRequest(BaseModel):
+    """
+    Testudo Formation — the LLM proposes a logical change to the dictionary.
+    The engine validates and applies it; never raw SQL.
+    """
+    dictionary: dict[str, Any]
+    entity: str            # target table name
+    change: str            # add_column | drop_column | rename_column | add_table | drop_table
+    field: SuggestionField | None = None
+    rename_to: str | None = None  # for rename_column
+
+class ApplySuggestionResponse(BaseModel):
+    updated_dictionary: dict[str, Any]
+    applied: bool
+    summary: str
+    risk: str = "low"      # low | medium | high
+    warnings: list[str] = Field(default_factory=list)
+
+
+# --- Git / PR Comment Payload (PBI-5) ---
+
+class PRCommentRequest(BaseModel):
+    connection_string: str
+    dictionary: dict[str, Any]
+    engine: str = "pg"
+    schema_filter: str | None = None
+
+
+class PRCommentResponse(BaseModel):
+    markdown: str
+    risk_level: RiskLevel
+    summary: dict[str, int] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+
+
+# --- Mock Data Seeder (PBI-7) ---
+
+class SeedRequest(BaseModel):
+    dictionary: dict[str, Any]
+    rows_per_table: int = 10
+    locale: str = "it_IT"    # for faker
+
+class SeedResponse(BaseModel):
+    seed_data: dict[str, list[dict[str, Any]]]
+    stats: dict[str, int] = Field(default_factory=dict)

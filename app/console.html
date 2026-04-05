@@ -7,6 +7,7 @@
 <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"></script>
 <style>
   :root {
     --void: #03050a;
@@ -254,12 +255,21 @@
   }
   .split-right {
     width: 60%;
-    background: #fff; /* Mermaid needs light bg */
+    background: #f6f8fc;
     overflow: auto;
     padding: 16px;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    justify-content: stretch;
+    align-items: stretch;
+  }
+  #studio-graph {
+    width: 100%;
+    min-height: 100%;
+    border-radius: 10px;
+    background:
+      radial-gradient(circle at top left, rgba(94, 129, 172, 0.12), transparent 28%),
+      linear-gradient(180deg, #ffffff 0%, #eef3fb 100%);
+    border: 1px solid rgba(30, 45, 78, 0.08);
   }
   #jsonEditor {
     flex: 1;
@@ -274,6 +284,32 @@
     align-items: center;
     font-size: 11px;
     color: var(--text-dim);
+  }
+  .studio-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .studio-legend {
+    display: flex;
+    gap: 10px;
+    padding: 8px 12px 0;
+    font-size: 10px;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-wrap: wrap;
+  }
+  .studio-legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .studio-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
   }
 
   /* Chat UI */
@@ -316,6 +352,34 @@
   .chat-message.agent p:last-child { margin-bottom: 0; }
   .chat-message.agent pre { margin: 8px 0; background: var(--void); padding: 8px; }
   .chat-message.agent code { color: var(--gold); }
+  .suggestion-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .suggestion-btn {
+    background: rgba(163, 190, 140, 0.15);
+    color: var(--success);
+    border: 1px solid var(--success);
+    border-radius: var(--radius);
+    padding: 6px 10px;
+    font-family: var(--font);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .suggestion-btn:hover { background: rgba(163, 190, 140, 0.22); }
+  .suggestion-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
   
   .chat-input-area {
     display: flex;
@@ -488,6 +552,64 @@
     letter-spacing: 0.5px;
   }
   .reverse-load-btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 5, 10, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 20;
+  }
+  .modal-backdrop.visible { display: flex; }
+  .modal {
+    width: min(560px, 100%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(191, 97, 106, 0.12);
+  }
+  .modal-header h3 {
+    color: var(--error);
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .modal-body {
+    padding: 20px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    font-size: 13px;
+  }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px 20px;
+  }
+  .modal-btn {
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    font-family: var(--font);
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    color: var(--text);
+  }
+  .modal-btn.danger {
+    background: var(--error);
+    border-color: var(--error);
+    color: var(--text);
+    font-weight: 700;
+  }
 </style>
 </head>
 <body>
@@ -520,6 +642,7 @@
       <div class="nav-title">Intelligence</div>
       <button class="btn" data-view="agent" onclick="switchView('agent')">Agentic Observer</button>
       <button class="btn" data-view="reverse" onclick="switchView('reverse')">⟳ Reverse Engineer</button>
+      <button class="btn" data-view="seeder" onclick="switchView('seeder')">🧪 Mock Seeder</button>
     </div>
   </div>
 
@@ -559,12 +682,23 @@
         <div class="split-left">
           <div class="studio-toolbar">
             <span>JSON Declarative Dictionary</span>
-            <span id="studio-status" style="color: var(--success);">In sync</span>
+            <div class="studio-actions">
+              <button class="toolbar-btn" onclick="runStudioVisualDrift()">Visual Drift</button>
+              <span id="studio-status" style="color: var(--success);">In sync</span>
+            </div>
           </div>
           <div id="jsonEditor"></div>
         </div>
         <div class="split-right">
-          <div class="mermaid" id="studio-mermaid"></div>
+          <div style="width:100%;display:flex;flex-direction:column;gap:10px;">
+            <div class="studio-legend">
+              <span><i style="background:#5e81ac"></i> Invariant</span>
+              <span><i style="background:#a3be8c"></i> New</span>
+              <span><i style="background:#d08770"></i> Modified</span>
+              <span><i style="background:#bf616a"></i> Dropped</span>
+            </div>
+            <div id="studio-graph"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -648,7 +782,49 @@
       </div>
     </div>
 
+    <!-- Mock Seeder (PBI-7) -->
+    <div id="view-seeder" class="view-pane">
+      <div class="reverse-panel">
+        <h2>🧪 Mock Seeder</h2>
+        <p>Genera seed data JSON dal Data Dictionary rispettando l'ordine delle Foreign Key e i constraint principali.</p>
+        <div class="reverse-form">
+          <div>
+            <label>Rows Per Table</label>
+            <input type="number" id="seedRows" min="1" max="500" value="10">
+          </div>
+          <div>
+            <label>Locale</label>
+            <input type="text" id="seedLocale" value="it_IT">
+          </div>
+        </div>
+        <div class="reverse-actions">
+          <button class="toolbar-btn cta" onclick="runSeedGenerate()" id="seedBtn">Generate Mock Data</button>
+          <span id="seedSpinner" style="display:none;color:var(--gold);font-size:12px;">Generazione in corso...</span>
+        </div>
+        <div class="reverse-result visible" id="seedResult">
+          <div class="reverse-stats" id="seedStats"></div>
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+            <button class="toolbar-btn" onclick="downloadSeedData()">⬇ Seed JSON</button>
+          </div>
+          <pre id="seedPreview" style="max-height:360px;overflow:auto;font-size:11px;">Premi "Generate Mock Data" per creare il seed dal dizionario corrente.</pre>
+        </div>
+      </div>
+    </div>
 
+
+  </div>
+</div>
+
+<div id="dangerModal" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Destructive Apply Warning</h3>
+    </div>
+    <div class="modal-body" id="dangerModalMessage"></div>
+    <div class="modal-actions">
+      <button class="modal-btn" onclick="closeDangerModal()">Cancel</button>
+      <button class="modal-btn danger" onclick="confirmDangerModal()">Apply Anyway</button>
+    </div>
   </div>
 </div>
 
@@ -658,6 +834,10 @@
   // Currently loaded dictionary for operations
   let currentDictionary = null;
   let currentPlan = null;
+  let pendingDangerAction = null;
+  let studioNetwork = null;
+  let studioDriftMap = new Map();
+  let lastSeedData = null;
 
   async function api(path, method = 'GET', body = null) {
       document.getElementById('mainLoader').classList.add('active');
@@ -700,6 +880,224 @@
               else if (/null/.test(match)) cls = 'null';
               return `<span class="token ${cls}">${match}</span>`;
           });
+  }
+
+  function escapeHTML(value) {
+      return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+  }
+
+  function getEntitySchema(entity) {
+      return entity.schema || entity.schema_name || 'public';
+  }
+
+  function getEntityKey(entity) {
+      return `${getEntitySchema(entity)}.${entity.name}`;
+  }
+
+  function normalizeTableName(name) {
+      return String(name || '').replace(/^dbo\./i, '').replace(/^public\./i, match => match.toLowerCase());
+  }
+
+  function summarizeEntity(entity) {
+      const columns = entity.columns || [];
+      const sample = columns.slice(0, 4).map(column => `${column.name}: ${column.type || '?'}`);
+      const more = columns.length > 4 ? `\n+ ${columns.length - 4} more columns` : '';
+      return sample.join('\n') + more;
+  }
+
+  function getNodeStyleForState(state) {
+      switch (state) {
+          case 'new':
+              return { color: '#a3be8c', border: '#7aa35d' };
+          case 'modified':
+              return { color: '#d08770', border: '#b66b54' };
+          case 'dropped':
+              return { color: '#bf616a', border: '#9d4550' };
+          default:
+              return { color: '#5e81ac', border: '#45688d' };
+      }
+  }
+
+  function buildStudioGraphData(dictionary) {
+      const entities = (dictionary.entities || []).filter(entity => entity && entity.name);
+      const entityKeys = new Set(entities.map(getEntityKey));
+      const nodes = entities.map(entity => {
+          const key = getEntityKey(entity);
+          const driftState = studioDriftMap.get(key) || studioDriftMap.get(entity.name) || 'unchanged';
+          const style = getNodeStyleForState(driftState);
+          return {
+              id: key,
+              label: `${entity.name}\n${(entity.columns || []).length} cols`,
+              title: escapeHTML(`${key}\n${summarizeEntity(entity)}`),
+              shape: 'box',
+              margin: 14,
+              font: { face: 'JetBrains Mono, monospace', color: '#0b1120', size: 13, multi: 'md' },
+              color: {
+                  background: style.color,
+                  border: style.border,
+                  highlight: { background: style.color, border: '#0b1120' },
+              },
+              borderWidth: 2,
+              shadow: { enabled: false },
+          };
+      });
+
+      const edges = [];
+      const seen = new Set();
+      entities.forEach(entity => {
+          const fromKey = getEntityKey(entity);
+          (entity.columns || []).forEach(column => {
+              if (!column.fk) return;
+              const parts = String(column.fk).split('.');
+              let targetSchema = getEntitySchema(entity);
+              let targetTable = '';
+              let targetColumn = '';
+              if (parts.length === 2) {
+                  [targetTable, targetColumn] = parts;
+              } else if (parts.length === 3) {
+                  [targetSchema, targetTable, targetColumn] = parts;
+              }
+              const targetKey = `${targetSchema}.${targetTable}`;
+              if (!entityKeys.has(targetKey)) return;
+              const edgeKey = `${fromKey}->${targetKey}:${column.name}`;
+              if (seen.has(edgeKey)) return;
+              seen.add(edgeKey);
+              edges.push({
+                  id: edgeKey,
+                  from: fromKey,
+                  to: targetKey,
+                  label: column.name,
+                  arrows: 'to',
+                  color: { color: '#7f8aa3', highlight: '#5e81ac' },
+                  font: { face: 'JetBrains Mono, monospace', size: 10, color: '#4c566a' },
+                  smooth: { type: 'cubicBezier', roundness: 0.25 },
+              });
+          });
+      });
+
+      return { nodes, edges };
+  }
+
+  function renderStudioNetwork(dictionary) {
+      const container = document.getElementById('studio-graph');
+      if (!container) return;
+      const graph = buildStudioGraphData(dictionary);
+      const data = {
+          nodes: new vis.DataSet(graph.nodes),
+          edges: new vis.DataSet(graph.edges),
+      };
+      const options = {
+          autoResize: true,
+          layout: {
+              improvedLayout: true,
+              hierarchical: false,
+          },
+          physics: {
+              stabilization: { iterations: 180 },
+              barnesHut: { gravitationalConstant: -4600, springLength: 160, damping: 0.22 },
+          },
+          interaction: {
+              hover: true,
+              navigationButtons: true,
+              keyboard: true,
+          },
+      };
+
+      if (!studioNetwork) {
+          studioNetwork = new vis.Network(container, data, options);
+      } else {
+          studioNetwork.setData(data);
+          studioNetwork.setOptions(options);
+      }
+      setTimeout(() => {
+          if (studioNetwork) studioNetwork.fit({ animation: { duration: 280, easingFunction: 'easeInOutQuad' } });
+      }, 80);
+  }
+
+  function buildDriftStateMap(report) {
+      const map = new Map();
+      const rank = { unchanged: 0, new: 1, modified: 2, dropped: 3 };
+      (report.items || []).forEach(item => {
+          let target = item.object_name || '';
+          let state = 'modified';
+          if (item.drift_type === 'missing_table') state = 'new';
+          else if (item.drift_type === 'extra_table') state = 'dropped';
+          else if (['missing_column', 'type_mismatch', 'missing_index', 'missing_rls', 'missing_masking', 'extra_index', 'extra_column'].includes(item.drift_type)) state = 'modified';
+
+          if (item.drift_type !== 'missing_table' && item.drift_type !== 'extra_table') {
+              const parts = String(target).split('.');
+              if (parts.length >= 3) {
+                  target = `${parts[0]}.${parts[1]}`;
+              } else if (parts.length >= 2) {
+                  target = `${parts[0]}.${parts[1]}`;
+              }
+          }
+
+          const current = map.get(target) || 'unchanged';
+          if (rank[state] > rank[current]) {
+              map.set(target, state);
+          }
+      });
+      return map;
+  }
+
+  function setCurrentDictionary(dict, syncEditor = true) {
+      currentDictionary = dict;
+      if (syncEditor && editor) {
+          editor.setValue(JSON.stringify(dict, null, 2), -1);
+          renderStudioDiagram();
+      }
+      const dictionaryOut = document.getElementById('dictionary-out');
+      if (dictionaryOut && document.getElementById('view-dictionary').classList.contains('active')) {
+          dictionaryOut.innerHTML = `<pre><code>${formatJSON(dict)}</code></pre>`;
+      }
+  }
+
+  function extractSuggestionPayloads(text) {
+      const payloads = [];
+      const matches = text.matchAll(/```json\s*([\s\S]*?)```/gi);
+      for (const match of matches) {
+          try {
+              const parsed = JSON.parse(match[1]);
+              if (parsed && parsed.entity && parsed.change) {
+                  payloads.push(parsed);
+              }
+          } catch (err) {
+              console.debug('Skipping non-actionable JSON block', err);
+          }
+      }
+      return payloads;
+  }
+
+  function appendSuggestionActions(container, suggestions) {
+      const actions = document.createElement('div');
+      actions.className = 'suggestion-actions';
+
+      suggestions.forEach((suggestion, index) => {
+          const btn = document.createElement('button');
+          btn.className = 'suggestion-btn';
+          btn.textContent = `Applica al Dizionario ${index + 1}`;
+          btn.onclick = () => applySuggestionToDictionary(suggestion);
+          actions.appendChild(btn);
+      });
+
+      const badge = document.createElement('div');
+      badge.className = 'suggestion-badge';
+      badge.textContent = 'Testudo: dictionary only';
+      container.appendChild(actions);
+      container.appendChild(badge);
+  }
+
+  function setSeedStats(tableCount, rowCount) {
+      document.getElementById('seedStats').innerHTML =
+          stat(tableCount, 'Tabelle') +
+          stat(rowCount, 'Righe') +
+          stat(lastSeedData ? Object.keys(lastSeedData).length : 0, 'Payload');
   }
 
   async function ensureDictionary() {
@@ -747,19 +1145,54 @@
 
   async function runDeploy() {
       if (!currentPlan) return;
+      const destructiveChanges = currentPlan.changes.filter(change =>
+          ['drop_table', 'drop_column'].includes(change.change_type)
+      );
+
+      if (destructiveChanges.length > 0) {
+          const lines = destructiveChanges.map(change => `- ${change.change_type}: ${change.object_name}`);
+          openDangerModal(
+              `This plan contains destructive changes.\n\n${lines.join('\n')}\n\nReview the rollback plan before applying.`,
+              executeDeploy
+          );
+          return;
+      }
+
       if (!confirm("Are you sure you want to apply these changes?")) return;
-      
+      await executeDeploy();
+  }
+
+  async function executeDeploy() {
       const res = await api('/apply', 'POST', {
           connection_string: getConn(),
           plan: currentPlan,
           dry_run: false
       });
-      
+
       if (res.applied) {
           alert('Successfully deployed!');
-          runPlan(); // recheck
+          runPlan();
       } else {
           alert('Deploy returned false.');
+      }
+  }
+
+  function openDangerModal(message, onConfirm) {
+      pendingDangerAction = onConfirm;
+      document.getElementById('dangerModalMessage').textContent = message;
+      document.getElementById('dangerModal').classList.add('visible');
+  }
+
+  function closeDangerModal() {
+      pendingDangerAction = null;
+      document.getElementById('dangerModal').classList.remove('visible');
+  }
+
+  async function confirmDangerModal() {
+      const action = pendingDangerAction;
+      closeDangerModal();
+      if (action) {
+          await action();
       }
   }
 
@@ -777,7 +1210,28 @@
       if (!res.has_drift) {
           out.innerHTML = `<div class="status-box ok">No drift detected. Database matches declarative truth.</div>`;
       } else {
-          out.innerHTML = `<div class="status-box warn"><pre>${formatJSON(res.violations)}</pre></div>`;
+          out.innerHTML = `<div class="status-box warn"><pre>${formatJSON(res.items)}</pre></div>`;
+      }
+  }
+
+  async function runStudioVisualDrift() {
+      const statusEl = document.getElementById('studio-status');
+      try {
+          const dict = editor ? JSON.parse(editor.getValue()) : await ensureDictionary();
+          statusEl.textContent = 'Fetching drift...';
+          statusEl.style.color = 'var(--warning)';
+          const res = await api('/drift/dictionary', 'POST', {
+              connection_string: getConn(),
+              dictionary: dict,
+              engine: 'postgresql'
+          });
+          studioDriftMap = buildDriftStateMap(res);
+          renderStudioNetwork(dict);
+          statusEl.textContent = res.has_drift ? 'Visual drift loaded' : 'No drift';
+          statusEl.style.color = res.has_drift ? 'var(--warning)' : 'var(--success)';
+      } catch (err) {
+          statusEl.textContent = 'Drift error';
+          statusEl.style.color = 'var(--error)';
       }
   }
 
@@ -817,15 +1271,36 @@
       div.className = 'chat-message ' + role;
       
       if (role === 'agent') {
-          // Render markdown for agent response
           div.innerHTML = marked.parse(text);
-          // Syntax highlight code blocks if we had prism/highlight.js, but plain will do
+          const suggestions = extractSuggestionPayloads(text);
+          if (suggestions.length > 0) {
+              appendSuggestionActions(div, suggestions);
+          }
       } else {
           div.textContent = text;
       }
       
       history.appendChild(div);
       history.scrollTop = history.scrollHeight;
+  }
+
+  async function applySuggestionToDictionary(suggestion) {
+      const dict = editor ? JSON.parse(editor.getValue()) : await ensureDictionary();
+      const res = await api('/agent/apply-suggestion', 'POST', {
+          dictionary: dict,
+          entity: suggestion.entity,
+          change: suggestion.change,
+          field: suggestion.field || null,
+          rename_to: suggestion.rename_to || null
+      });
+
+      setCurrentDictionary(res.updated_dictionary);
+      switchView('studio');
+
+      const warningNote = res.warnings && res.warnings.length
+          ? `\nWarnings:\n- ${res.warnings.join('\n- ')}`
+          : '';
+      alert(`${res.summary}\nRisk: ${res.risk}${warningNote}`);
   }
 
   async function sendChatMessage() {
@@ -895,17 +1370,9 @@
       try {
           const rawText = editor.getValue();
           const parsedDict = JSON.parse(rawText);
+          currentDictionary = parsedDict;
           statusEl.textContent = 'Rendering...';
-          
-          const res = await api('/schema/maetel/dictionary', 'POST', {
-              dictionary: parsedDict,
-              engine: 'postgresql'
-          });
-          
-          const mg = document.getElementById('studio-mermaid');
-          mg.innerHTML = res.content;
-          mg.removeAttribute('data-processed');
-          mermaid.init(undefined, mg);
+          renderStudioNetwork(parsedDict);
           
           statusEl.textContent = 'In sync';
           statusEl.style.color = 'var(--success)';
@@ -1008,10 +1475,7 @@
 
   function loadReverseIntoStudio() {
     if (!lastReversedDict) return;
-    currentDictionary = lastReversedDict;
-    if (aceEditor) {
-      aceEditor.setValue(JSON.stringify(lastReversedDict, null, 2), -1);
-    }
+    setCurrentDictionary(lastReversedDict);
     switchView('studio');
   }
 
@@ -1021,6 +1485,37 @@
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'db-data-dictionary.json';
+    a.click();
+  }
+
+  async function runSeedGenerate() {
+    const rows = parseInt(document.getElementById('seedRows').value || '10', 10);
+    const locale = document.getElementById('seedLocale').value.trim() || 'it_IT';
+    document.getElementById('seedSpinner').style.display = 'inline';
+    document.getElementById('seedBtn').disabled = true;
+
+    try {
+      const dict = editor ? JSON.parse(editor.getValue()) : await ensureDictionary();
+      const res = await api('/seed/generate', 'POST', {
+          dictionary: dict,
+          rows_per_table: rows,
+          locale: locale
+      });
+      lastSeedData = res.seed_data;
+      setSeedStats(res.stats.table_count || 0, res.stats.row_count || 0);
+      document.getElementById('seedPreview').textContent = JSON.stringify(lastSeedData, null, 2).substring(0, 6000);
+    } finally {
+      document.getElementById('seedSpinner').style.display = 'none';
+      document.getElementById('seedBtn').disabled = false;
+    }
+  }
+
+  function downloadSeedData() {
+    if (!lastSeedData) return;
+    const blob = new Blob([JSON.stringify(lastSeedData, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'mock-seed-data.json';
     a.click();
   }
 </script>
