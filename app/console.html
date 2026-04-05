@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hale-Bopp DB Console</title>
 <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
 <style>
   :root {
     --void: #03050a;
@@ -235,6 +237,143 @@
   .loader { display: none; }
   .loader.active { display: inline-block; animation: pulse 1s infinite; }
   @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+  /* Split Screen Studio */
+  .split-container {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+  .split-left {
+    width: 40%;
+    border-right: 1px solid var(--border);
+    background: var(--void);
+    display: flex;
+    flex-direction: column;
+  }
+  .split-right {
+    width: 60%;
+    background: #fff; /* Mermaid needs light bg */
+    overflow: auto;
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  #jsonEditor {
+    flex: 1;
+    font-size: 13px;
+  }
+  .studio-toolbar {
+    background: var(--surface-raised);
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* Chat UI */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .chat-history {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .chat-message {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .chat-message.user {
+    align-self: flex-end;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .chat-message.agent {
+    align-self: flex-start;
+    background: rgba(94, 129, 172, 0.1);
+    border: 1px solid var(--accent);
+    color: var(--text-dim);
+  }
+  .chat-message.agent p { margin-bottom: 8px; }
+  .chat-message.agent p:last-child { margin-bottom: 0; }
+  .chat-message.agent pre { margin: 8px 0; background: var(--void); padding: 8px; }
+  .chat-message.agent code { color: var(--gold); }
+  
+  .chat-input-area {
+    display: flex;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    background: var(--void);
+    gap: 12px;
+  }
+  .chat-input {
+    flex: 1;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    border-radius: var(--radius);
+    font-family: inherit;
+    resize: none;
+    height: 60px;
+  }
+  .chat-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+  .chat-send-btn {
+    align-self: center;
+    background: var(--accent);
+    color: var(--void);
+    border: none;
+    border-radius: var(--radius);
+    padding: 0 24px;
+    height: 44px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .chat-send-btn:hover { background: var(--accent-bright); }
+  
+  .quick-questions {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .quick-question {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+  }
+  .quick-question:hover {
+    background: var(--surface-hover);
+    color: var(--accent-bright);
+    border-color: var(--accent-bright);
+  }
 </style>
 </head>
 <body>
@@ -257,9 +396,15 @@
     
     <div class="nav-group">
       <div class="nav-title">Operations</div>
+      <button class="btn" data-view="studio" onclick="switchView('studio')">Schema Studio (DBML)</button>
       <button class="btn" data-view="plan" onclick="switchView('plan')">Diff & Plan</button>
       <button class="btn" data-view="drift" onclick="switchView('drift')">Drift Detection</button>
       <button class="btn" data-view="maetel" onclick="switchView('maetel')">Maetel ER Diagram</button>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-title">Intelligence</div>
+      <button class="btn" data-view="agent" onclick="switchView('agent')">Agentic Observer</button>
     </div>
   </div>
 
@@ -293,6 +438,22 @@
       <div id="plan-out" style="margin-top:16px;"></div>
     </div>
 
+    <!-- Schema Studio (Split Screen) -->
+    <div id="view-studio" class="view-pane" style="padding: 0; display: none;">
+      <div class="split-container">
+        <div class="split-left">
+          <div class="studio-toolbar">
+            <span>JSON Declarative Dictionary</span>
+            <span id="studio-status" style="color: var(--success);">In sync</span>
+          </div>
+          <div id="jsonEditor"></div>
+        </div>
+        <div class="split-right">
+          <div class="mermaid" id="studio-mermaid"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Drift -->
     <div id="view-drift" class="view-pane">
       <div class="toolbar">
@@ -309,6 +470,29 @@
       <div id="maetel-out" style="margin-top:16px;">
          <div id="mermaid-container" style="display:none"><div class="mermaid" id="mermaid-graph"></div></div>
       </div>
+    </div>
+
+    <!-- Agentic Observer -->
+    <div id="view-agent" class="view-pane" style="display: none; padding-bottom: 0;">
+       <div class="quick-questions">
+         <div class="quick-question" onclick="setQuestion('Quali tabelle del database potrebbero contenere PII (Personal Identifiable Information) in base ai nomi delle colonne?')">Privacy & PII</div>
+         <div class="quick-question" onclick="setQuestion('Se rinomino la colonna status in order_status nella tabella ORDERS, quali view o tabelle figlie si spaccano?')">Impact Analysis (ORDERS)</div>
+         <div class="quick-question" onclick="setQuestion('Quali sono le Tabelve Isola (Orphan Tables) che non hanno Foreign Key in entrata o in uscita?')">Orphan Tables</div>
+         <div class="quick-question" onclick="setQuestion('Trova le colonne che usano VARCHAR(255) ovunque come default pigro, ma che probabilmente dovrebbero essere ENUM.')">Tech Debt VARCHAR(255)</div>
+         <div class="quick-question" onclick="setQuestion('Ci sono colonne legate a dati sanitari che non hanno audit log trigger associato?')">Audit Logs Healthcare</div>
+       </div>
+
+       <div class="chat-container">
+         <div class="chat-history" id="chatHistory">
+            <div class="chat-message agent">
+               <strong>Hale-Bopp DB Agent:</strong> Ciao! Sono l'agente specializzato sul tuo schema database. Le mie conoscenze derivano in tempo reale dal data dictionary JSON e dalla struttura della connessione attiva.<br>Come posso aiutarti oggi?
+            </div>
+         </div>
+         <div class="chat-input-area">
+            <textarea id="chatInput" class="chat-input" placeholder="Chiedi informazioni sullo schema o richiedi modifiche..." onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"></textarea>
+            <button class="chat-send-btn" onclick="sendChatMessage()">Invia</button>
+         </div>
+       </div>
     </div>
 
   </div>
@@ -465,6 +649,127 @@
           mg.innerHTML = `<span class="diff-rm">Failed to generate ER diagram</span>`;
       }
   }
+
+  // --- Agentic Observer Chat UI ---
+
+  function setQuestion(text) {
+      document.getElementById('chatInput').value = text;
+      document.getElementById('chatInput').focus();
+  }
+
+  function appendChat(role, text) {
+      const history = document.getElementById('chatHistory');
+      const div = document.createElement('div');
+      div.className = 'chat-message ' + role;
+      
+      if (role === 'agent') {
+          // Render markdown for agent response
+          div.innerHTML = marked.parse(text);
+          // Syntax highlight code blocks if we had prism/highlight.js, but plain will do
+      } else {
+          div.textContent = text;
+      }
+      
+      history.appendChild(div);
+      history.scrollTop = history.scrollHeight;
+  }
+
+  async function sendChatMessage() {
+      const inputEl = document.getElementById('chatInput');
+      const question = inputEl.value.trim();
+      if (!question) return;
+
+      appendChat('user', question);
+      inputEl.value = '';
+      
+      // Temporary typing indicator
+      const history = document.getElementById('chatHistory');
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'chat-message agent typing-indicator';
+      typingDiv.innerHTML = '<span class="loader active">Analizzando il dizionario...</span>';
+      history.appendChild(typingDiv);
+      history.scrollTop = history.scrollHeight;
+
+      try {
+          const dict = await ensureDictionary();
+          const res = await api('/agent/ask', 'POST', {
+              connection_string: getConn(),
+              dictionary: dict,
+              question: question
+          });
+          
+          typingDiv.remove();
+          appendChat('agent', res.answer);
+      } catch(err) {
+          typingDiv.remove();
+          appendChat('agent', '**Errore**: ' + err.message);
+      }
+  }
+
+  // --- Schema Studio Logic ---
+  let editor = null;
+  let studioTimeout = null;
+
+  async function initStudio() {
+      if (!editor) {
+          editor = ace.edit("jsonEditor");
+          editor.setTheme("ace/theme/tomorrow_night_eighties");
+          editor.session.setMode("ace/mode/json");
+          editor.setOptions({
+              tabSize: 2,
+              useSoftTabs: true,
+              showPrintMargin: false,
+          });
+
+          const dict = await ensureDictionary();
+          editor.setValue(JSON.stringify(dict, null, 2), -1);
+
+          editor.session.on('change', function() {
+              document.getElementById('studio-status').textContent = 'Typing...';
+              document.getElementById('studio-status').style.color = 'var(--text-dim)';
+              clearTimeout(studioTimeout);
+              studioTimeout = setTimeout(renderStudioDiagram, 800); // 800ms debounce
+          });
+          
+          // Initial render
+          renderStudioDiagram();
+      }
+  }
+
+  async function renderStudioDiagram() {
+      const statusEl = document.getElementById('studio-status');
+      try {
+          const rawText = editor.getValue();
+          const parsedDict = JSON.parse(rawText);
+          statusEl.textContent = 'Rendering...';
+          
+          const res = await api('/schema/maetel/dictionary', 'POST', {
+              dictionary: parsedDict,
+              engine: 'postgresql'
+          });
+          
+          const mg = document.getElementById('studio-mermaid');
+          mg.innerHTML = res.content;
+          mg.removeAttribute('data-processed');
+          mermaid.init(undefined, mg);
+          
+          statusEl.textContent = 'In sync';
+          statusEl.style.color = 'var(--success)';
+      } catch (err) {
+          statusEl.textContent = 'Parse Error';
+          statusEl.style.color = 'var(--error)';
+      }
+  }
+
+  // Override switchView to initialize components if needed
+  const baseSwitchView = switchView;
+  switchView = function(id) {
+      baseSwitchView(id);
+      if (id === 'studio') {
+          initStudio();
+      }
+  };
+
 </script>
 </body>
 </html>

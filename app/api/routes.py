@@ -23,6 +23,7 @@ from app.core.plan import (
     _sanitize_conn,
 )
 from app.core.validate import get_suite_checks, validate_dictionary
+from app.core.llm import ask_schema_observer
 from app.models.schemas import (
     ApplyRequest,
     ApplyResponse,
@@ -43,6 +44,10 @@ from app.models.schemas import (
     PlanResult,
     ValidateRequest,
     ValidateResponse,
+    AgentAskRequest,
+    AgentAskResponse,
+    ReverseEngineerRequest,
+    ReverseEngineerResponse,
 )
 
 router = APIRouter(prefix="/api/v1")
@@ -230,8 +235,123 @@ def schema_maetel(req: MaetelRequest):
     return MaetelResponse(format=req.format, content=content, stats=stats)
 
 
+@router.post("/schema/maetel/dictionary", response_model=MaetelResponse)
+def schema_maetel_dictionary(req: CompileRequest):
+    """Generate ER diagram directly from a Data Dictionary JSON (in-memory)."""
+    dd = DataDictionary.model_validate(req.dictionary)
+    desired = dictionary_to_desired(dd, engine=req.engine, schema_filter=req.schema_filter)
+    
+    content = maetel_to_mermaid(desired, schema_name=req.schema_filter)
+    stats = {"line_count": len(content.splitlines())}
+    return MaetelResponse(format="mermaid", content=content, stats=stats)
+
+
+# --- Reverse Engineering ---
+
+@router.post("/introspect/reverse", response_model=ReverseEngineerResponse)
+def reverse_engineer(req: ReverseEngineerRequest):
+    """
+    Reverse engineer a live database connection into a Hale-Bopp DataDictionary JSON format (PBI-6).
+    """
+    actual = introspect_schema(req.connection_string, schema=req.schema_filter)
+    
+    entities = []
+    # If multiple schemas are present, `introspect_schema` provides them under 'tables' mapped as 'schema.table'
+    for table_key, table_def in actual.get("tables", {}).items():
+        if "." in table_key:
+            schema_name, table_name = table_key.split(".", 1)
+        else:
+            schema_name, table_name = "public", table_key
+            
+        columns = []
+        for col_name, col_def in table_def.get("columns", {}).items():
+            is_pk = col_name in table_def.get("primary_key", [])
+            
+            # Reconstruct FK logic
+            fk_ref = None
+            for fk in table_def.get("foreign_keys", []):
+                if col_name in fk.get("constrained_columns", []):
+                    ref_schema = fk.get("referred_schema", schema_name)
+                    ref_table = fk.get("referred_table")
+                    ref_col = fk.get("referred_columns", [""])[0]
+                    # Format as 'schema.table.col' or 'table.col'
+                    if ref_schema != schema_name:
+                        fk_ref = f"{ref_schema}.{ref_table}.{ref_col}"
+                    else:
+                        fk_ref = f"{ref_table}.{ref_col}"
+                    break
+                    
+            columns.append({
+                "name": col_name,
+                "type": col_def.get("type", "string").lower(),
+                "nullable": col_def.get("nullable", True),
+                "default": col_def.get("default"),
+                "pk": is_pk,
+                "fk": fk_ref
+            })
+            
+        entities.append({
+            "name": table_name,
+            "schema_name": schema_name,
+            "type": "TABLE",
+            "columns": columns
+        })
+        
+    dictionary = {
+        "type_map": {
+            "string": {"pg": "VARCHAR(255)"},
+            "uuid": {"pg": "UUID"},
+            "integer": {"pg": "INTEGER"},
+            "boolean": {"pg": "BOOLEAN"},
+            "timestamp": {"pg": "TIMESTAMP"}
+        },
+        "default_map": {},
+        "entities": entities
+    }
+        
+    return ReverseEngineerResponse(dictionary=dictionary)
+
+
 # --- Health ---
 
 @router.get("/health", response_model=HealthResponse)
 def health():
     return HealthResponse(version=VERSION)
+
+
+# --- Agentic Schema Observer ---
+
+@router.post("/agent/ask", response_model=AgentAskResponse)
+def agent_ask(req: AgentAskRequest):
+    """
+    Agentic Schema Observer — Real LLM Router (PBI-2).
+    Routes to the configured provider (OpenRouter / Azure OpenAI / Ollama)
+    following the Valentino Engine BYOL pattern.
+    Testudo Formation: the LLM only analyses the dictionary, never touches the DB.
+    """
+    try:
+        answer = ask_schema_observer(
+            question=req.question,
+            dictionary=req.dictionary,
+        )
+        return AgentAskResponse(
+            answer=answer,
+            metadata={
+                "provider": __import__('os').getenv("HBDB_LLM_PROVIDER", "openrouter"),
+                "model": __import__('os').getenv("HBDB_LLM_MODEL", "default"),
+                "table_count": len(req.dictionary.get("entities", [])),
+            }
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Graceful degradation: fallback message if provider unreachable
+        return AgentAskResponse(
+            answer=(
+                f"> ⚠️ **LLM Provider non raggiungibile** (`{type(exc).__name__}: {exc}`)\n\n"
+                "Verifica le variabili d'ambiente:\n"
+                "- `HBDB_LLM_PROVIDER` (openrouter | azure | ollama)\n"
+                "- `HBDB_LLM_API_KEY`\n"
+                "- `HBDB_LLM_MODEL`\n"
+            ),
+            metadata={"error": str(exc)},
+        )
+

@@ -213,3 +213,26 @@ class ValidateResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str = "ok"
     version: str
+
+
+# --- Agentic Schema Observer ---
+
+class AgentAskRequest(BaseModel):
+    question: str
+    dictionary: dict[str, Any]
+    connection_string: str = ""
+    model: str = "default"
+
+class AgentAskResponse(BaseModel):
+    answer: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+# --- Reverse Engineering ---
+
+class ReverseEngineerRequest(BaseModel):
+    connection_string: str
+    schema_filter: str | None = None
+
+class ReverseEngineerResponse(BaseModel):
+    dictionary: dict[str, Any]
+
