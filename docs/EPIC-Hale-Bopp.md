@@ -42,7 +42,7 @@ Fungere da ponte per sviluppatori ed architect, garantendo distribuzioni fluide 
 - PR comment via API implementato: "Questa PR fa droppare la Tabella X".
 - Pipeline YML exportables (easyway standard).
 
-## 🚀 PBI-6: Advanced Tool: Reverse Engineering One-Click 🔄 IN PROGRESS
+## 🚀 PBI-6: Advanced Tool: Reverse Engineering One-Click ✅ DONE
 **Description:** Sviluppo funzione di *One-Click Introspect*. Avendo stringa di connessione Legacy, l'engine cattura per intero la struttura DB, analizzando tabelle, FK, indici (escludendo system view) e genera un bootstrap del `db-data-dictionary.json` standard, proiettando il database Legacy nell'Universo Hale-Bopp in 15 secondi.
 **Acceptance Criteria:**
 - Export pulito ed enumerato.
