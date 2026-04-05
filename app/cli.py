@@ -1,12 +1,12 @@
-"""DB-HALE-BOPP CLI — schema governance from the terminal.
+"""hale-bopp-db CLI — schema governance from the terminal.
 
 Usage:
-    halebopp diff --connection <conn> --desired schema.json
-    halebopp deploy --connection <conn> --changes changes.json [--execute]
-    halebopp drift --connection <conn> --baseline baseline.json
-    halebopp snapshot --connection <conn> -o baseline.json
-    halebopp plan --connection <conn> --dictionary dict.json [-o plan.json]
-    halebopp apply --connection <conn> --plan plan.json [--execute]
+    hb diff --connection <conn> --desired schema.json
+    hb deploy --connection <conn> --changes changes.json [--execute]
+    hb drift --connection <conn> --baseline baseline.json
+    hb snapshot --connection <conn> -o baseline.json
+    hb plan --connection <conn> --dictionary dict.json [-o plan.json]
+    hb apply --connection <conn> --plan plan.json [--execute]
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import click
 
+from app.version import __version__
 from app.core.compile import compile_and_write, load_dictionary
 from app.core.docs import generate_dbml, generate_excel, generate_html, generate_markdown, generate_mermaid
 from app.core.validate import ValidationReport, get_suite_checks, validate_dictionary
@@ -100,9 +101,9 @@ def _print_changes(changes: list[SchemaChange], risk: str) -> None:
 
 
 @click.group()
-@click.version_option("0.1.0", prog_name="halebopp")
+@click.version_option(__version__, prog_name="hb")
 def cli():
-    """DB-HALE-BOPP — Deterministic schema governance for PostgreSQL."""
+    """hale-bopp-db — Deterministic schema governance for PostgreSQL."""
     pass
 
 

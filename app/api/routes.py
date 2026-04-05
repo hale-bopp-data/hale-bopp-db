@@ -25,6 +25,7 @@ from app.core.plan import (
 )
 from app.core.validate import get_suite_checks, validate_dictionary
 from app.core.llm import ask_schema_observer
+from app.version import __version__
 from app.models.schemas import (
     ApplyRequest,
     ApplyResponse,
@@ -58,8 +59,6 @@ from app.models.schemas import (
 )
 
 router = APIRouter(prefix="/api/v1")
-
-VERSION = "0.2.0"
 
 # Default dictionary path — can be overridden with env var HB_DICTIONARY_PATH
 import os
@@ -481,7 +480,7 @@ def reverse_engineer(req: ReverseEngineerRequest):
 
 @router.get("/health", response_model=HealthResponse)
 def health():
-    return HealthResponse(version=VERSION)
+    return HealthResponse(version=__version__)
 
 
 # --- Agentic Schema Observer ---

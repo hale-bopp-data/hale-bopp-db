@@ -1,92 +1,87 @@
-# Contributing to HALE-BOPP
+# Contributing to hale-bopp-db
 
-First off, thank you for considering contributing to HALE-BOPP! Every contribution
-makes these tools better for everyone — from enterprise teams to small non-profit
-associations that rely on open-source to manage their data.
+Thanks for helping improve `hale-bopp-db`.
 
-## Code of Conduct
+This project is meant to be understandable and usable by people outside the original EasyWay workspace, so contributions should optimize for clarity, reproducibility, and deterministic behavior.
+
+## Code Of Conduct
 
 This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
-By participating, you are expected to uphold this code.
 
-## How Can I Contribute?
+## Before You Open A PR
 
-### Reporting Bugs
+- Check existing issues or discussions first
+- Prefer small, reviewable pull requests
+- Include tests when behavior changes
+- Update docs when commands, API surface, or setup expectations change
 
-- Use the **GitHub Issues** tab on the relevant repository
-- Include: steps to reproduce, expected vs actual behavior, environment details
-- Label with `bug` + the module (`db`, `etl`, `argos`)
+## Branch And PR Flow
 
-### Suggesting Features
+This repository uses a simple `feat/* -> main` flow.
 
-- Open a GitHub Issue with the `enhancement` label
-- Describe the use case, not just the solution
-- Reference relevant API contracts if applicable (see `API_CONTRACTS.md`)
+1. Start from `main`
+2. Create a descriptive branch such as `feat/column-rename-support` or `docs/readme-refresh`
+3. Make your changes with tests
+4. Open a pull request targeting `main`
 
-### Submitting Code
+Do not base work on `develop`; this repo does not use a `develop` branch.
 
-1. **Fork** the repository
-2. **Create a branch** from `develop`: `git checkout -b feat/your-feature develop`
-3. **Write tests** — we aim for meaningful coverage, not 100% vanity metrics
-4. **Follow existing patterns** — read the code before writing new code
-5. **Commit** with clear messages: `feat(db): add column rename support`
-6. **Open a PR** against `develop` (never directly to `main`)
-
-### Commit Message Convention
-
-```
-<type>(<scope>): <description>
-
-Types: feat, fix, docs, test, refactor, chore
-Scopes: db, etl, argos, docs, ci
-```
-
-### PR Requirements
-
-- [ ] Tests pass locally
-- [ ] No hardcoded values (connection strings, passwords, paths)
-- [ ] Documentation updated if API changes
-- [ ] PR description explains **why**, not just **what**
-
-## Development Setup
-
-Each module has its own Docker Compose for local development:
+## Local Setup
 
 ```bash
-# DB-HALE-BOPP
-cd DB-HALE-BOPP
-docker compose up
-
-# ETL-HALE-BOPP
-cd ETL-HALE-BOPP
-docker compose up
-
-# ARGOS-HALE-BOPP
-cd ARGOS-HALE-BOPP
-docker compose up
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[api,dev]"
 ```
 
-### Prerequisites
+Optional local demo stack:
 
-- Python 3.10+
-- Docker & Docker Compose
-- PostgreSQL (or use the Docker container)
+```bash
+docker compose up --build
+```
 
-## Architecture
+The compose stack is for local development only. Do not treat it as production infrastructure.
 
-HALE-BOPP follows the "Muscles" philosophy: **deterministic, no AI, pure mechanics**.
+## Preferred Commands
 
-- `DB-HALE-BOPP` — Schema governance engine (port 8100)
-- `ETL-HALE-BOPP` — Data orchestration (port 3000)
-- `ARGOS-HALE-BOPP` — Quality gate policy engine (port 8200)
+```bash
+hb --help
+hb plan --connection <conn> --dictionary data/db-data-dictionary.json
+hb drift --connection <conn> --dictionary data/db-data-dictionary.json
+pytest tests/ -v
+```
 
-See `API_CONTRACTS.md` for the Universal Event Schema that ties them together.
+`halebopp` remains available as a legacy alias, but `hb` is the preferred CLI name in docs, templates, and examples.
+
+## Commit Messages
+
+Use clear conventional messages such as:
+
+```text
+feat(cli): add hb alias
+fix(api): align health version metadata
+docs(readme): clarify local demo vs production
+```
+
+## PR Checklist
+
+- [ ] Tests pass locally
+- [ ] No secrets or environment-specific credentials are committed
+- [ ] README and CONTRIBUTING stay aligned with the real workflow
+- [ ] PR description explains why the change matters
+- [ ] The change keeps CLI, API, and packaging names coherent
+
+## GitHub And Azure DevOps
+
+The project is public on GitHub for discoverability and community signals.
+EasyWay maintainers also track delivery through Azure DevOps internally.
+
+For contributors, the important part is simple:
+
+- branch from `main`
+- open the PR against `main`
+- keep the change self-contained and documented
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the
-Apache License 2.0 (see `LICENSE`).
-
-## Questions?
-
-Open a Discussion on GitHub or reach out via Issues. We're happy to help!
+By contributing, you agree that your contributions will be licensed under the Apache License 2.0 (see [LICENSE](LICENSE)).
