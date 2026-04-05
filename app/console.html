@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hale-Bopp DB Console</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --void: #03050a;
+    --surface: #0b1120;
+    --surface-raised: #111a30;
+    --surface-hover: #172442;
+    --border: #1e2d4e;
+    --accent: #5e81ac;
+    --accent-bright: #81a1c1;
+    --gold: #ebcb8b;
+    --success: #a3be8c;
+    --error: #bf616a;
+    --warning: #d08770;
+    --text: #eceff4;
+    --text-dim: #d8dee9;
+    --text-dark: #4c566a;
+    --radius: 6px;
+    --font: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--void);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .header h1 {
+    font-size: 16px;
+    color: var(--accent-bright);
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .header .badge {
+    background: rgba(163, 190, 140, 0.15);
+    color: var(--success);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid var(--success);
+  }
+  .header .conn-info {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .conn-input {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 12px;
+    width: 300px;
+    transition: all 0.2s;
+  }
+  .conn-input:focus {
+    border-color: var(--accent);
+    outline: none;
+  }
+
+  /* Main layout */
+  .main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+  }
+
+  .nav-group { margin-bottom: 24px; }
+  .nav-title {
+    font-size: 11px;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    padding-left: 8px;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 4px;
+  }
+  .btn:hover {
+    background: var(--surface-raised);
+    color: var(--text);
+  }
+  .btn.active {
+    background: rgba(94, 129, 172, 0.15);
+    color: var(--accent-bright);
+    border-color: rgba(94, 129, 172, 0.3);
+  }
+  .btn.primary {
+    background: var(--accent);
+    color: var(--void);
+    font-weight: bold;
+    text-align: center;
+    border-color: var(--accent);
+  }
+  .btn.primary:hover {
+    background: var(--accent-bright);
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Content area */
+  .content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--void);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .toolbar {
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    gap: 8px;
+  }
+  .toolbar-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-family: var(--font);
+    font-size: 11px;
+    cursor: pointer;
+  }
+  .toolbar-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .toolbar-btn.cta {
+    background: var(--gold);
+    color: var(--void);
+    font-weight: 600;
+    border-color: var(--gold);
+  }
+
+  .view-pane {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    display: none;
+  }
+  .view-pane.active { display: block; }
+
+  /* Generic styles */
+  .status-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    color: var(--text-dim);
+  }
+  .status-box.ok { border-color: var(--success); background: rgba(163, 190, 140, 0.05); }
+  .status-box.warn { border-color: var(--warning); background: rgba(208, 135, 112, 0.05); align-items:flex-start; text-align:left; }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .diff-add { color: var(--success); }
+  .diff-rm { color: var(--error); }
+  .diff-info { color: var(--accent-bright); }
+  .token.string { color: var(--gold); }
+  .token.number { color: var(--warning); }
+  .token.boolean { color: var(--accent); }
+
+  /* ER Diagram specific */
+  #mermaid-container {
+    background: #fff; /* Mermaid needs light bg for default theme contrast */
+    border-radius: var(--radius);
+    padding: 16px;
+    overflow: auto;
+    text-align: center;
+  }
+
+  /* Loader */
+  .loader { display: none; }
+  .loader.active { display: inline-block; animation: pulse 1s infinite; }
+  @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>HALE-BOPP DB</h1>
+  <span class="badge">DETERMINISTIC CONSOLE</span>
+  <div class="conn-info">
+    <input type="text" id="connString" class="conn-input" placeholder="postgresql://user:pass@localhost:5432/db" value="postgresql://postgres:postgres@localhost:5432/postgres">
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="nav-group">
+      <div class="nav-title">Engine</div>
+      <button class="btn active" data-view="dashboard" onclick="switchView('dashboard')">Status Dashboard</button>
+      <button class="btn" data-view="dictionary" onclick="switchView('dictionary')">Data Dictionary</button>
+    </div>
+    
+    <div class="nav-group">
+      <div class="nav-title">Operations</div>
+      <button class="btn" data-view="plan" onclick="switchView('plan')">Diff & Plan</button>
+      <button class="btn" data-view="drift" onclick="switchView('drift')">Drift Detection</button>
+      <button class="btn" data-view="maetel" onclick="switchView('maetel')">Maetel ER Diagram</button>
+    </div>
+  </div>
+
+  <div class="content">
+    
+    <!-- Dashboard -->
+    <div id="view-dashboard" class="view-pane active">
+      <div class="status-box">
+        <h2 style="color:var(--accent-bright);margin-bottom:8px">Hale-Bopp Engine Ready</h2>
+        <p>Deterministic schema governance API is online.</p>
+        <span class="loader" id="mainLoader">Processing...</span>
+      </div>
+    </div>
+
+    <!-- Dictionary -->
+    <div id="view-dictionary" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="fetchDictionary()">Fetch Dictionary</button>
+      </div>
+      <div id="dictionary-out" style="margin-top:16px;">
+        <pre><code style="color:var(--text-dark)">Click "Fetch Dictionary" to load the active declarative schema JSON.</code></pre>
+      </div>
+    </div>
+
+    <!-- Diff & Plan -->
+    <div id="view-plan" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="runPlan()">Analyze Diff</button>
+        <button class="toolbar-btn cta" id="deployBtn" style="display:none" onclick="runDeploy()">Deploy Changes</button>
+      </div>
+      <div id="plan-out" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Drift -->
+    <div id="view-drift" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="runDrift()">Detect Drift</button>
+      </div>
+      <div id="drift-out" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Maetel ER Diagram -->
+    <div id="view-maetel" class="view-pane">
+      <div class="toolbar">
+        <button class="toolbar-btn" onclick="runMaetel()">Introspect & Generate ER</button>
+      </div>
+      <div id="maetel-out" style="margin-top:16px;">
+         <div id="mermaid-container" style="display:none"><div class="mermaid" id="mermaid-graph"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+  // Currently loaded dictionary for operations
+  let currentDictionary = null;
+  let currentPlan = null;
+
+  async function api(path, method = 'GET', body = null) {
+      document.getElementById('mainLoader').classList.add('active');
+      try {
+          const options = { method, headers: {} };
+          if (body) {
+              options.headers['Content-Type'] = 'application/json';
+              options.body = JSON.stringify(body);
+          }
+          const res = await fetch('/api/v1' + path, options);
+          if (!res.ok) throw new Error(await res.text());
+          return await res.json();
+      } catch (err) {
+          alert("API Error: " + err.message);
+          console.error(err);
+          throw err;
+      } finally {
+          document.getElementById('mainLoader').classList.remove('active');
+      }
+  }
+
+  function getConn() {
+      return document.getElementById('connString').value.trim();
+  }
+
+  function switchView(id) {
+      document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.sidebar .btn').forEach(el => el.classList.remove('active'));
+      document.getElementById('view-' + id).classList.add('active');
+      document.querySelector(`.sidebar .btn[data-view="${id}"]`).classList.add('active');
+  }
+
+  function formatJSON(obj) {
+      return JSON.stringify(obj, null, 2)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+              let cls = 'number';
+              if (/^"/.test(match)) cls = /:$/.test(match) ? 'key' : 'string';
+              else if (/true|false/.test(match)) cls = 'boolean';
+              else if (/null/.test(match)) cls = 'null';
+              return `<span class="token ${cls}">${match}</span>`;
+          });
+  }
+
+  async function ensureDictionary() {
+      if (!currentDictionary) {
+          currentDictionary = await api('/dictionary');
+      }
+      return currentDictionary;
+  }
+
+  async function fetchDictionary() {
+      const data = await ensureDictionary();
+      document.getElementById('dictionary-out').innerHTML = `<pre><code>${formatJSON(data)}</code></pre>`;
+  }
+
+  async function runPlan() {
+      const dict = await ensureDictionary();
+      const out = document.getElementById('plan-out');
+      out.innerHTML = '<i>Computing deterministic diff...</i>';
+      document.getElementById('deployBtn').style.display = 'none';
+      
+      const res = await api('/plan', 'POST', {
+          connection_string: getConn(),
+          dictionary: dict,
+          engine: 'postgresql'
+      });
+      
+      currentPlan = res;
+      
+      if (res.changes.length === 0) {
+          out.innerHTML = `<div class="status-box ok">Schema is fully synchronized. Zero diff.</div>`;
+      } else {
+          document.getElementById('deployBtn').style.display = 'inline-block';
+          let html = `<div class="status-box warn" style="margin-bottom:16px;">
+            <h3 style="color:var(--warning)">Changes Detected (Risk: ${res.risk_level})</h3>
+            <p>Hash: ${res.plan_hash}</p>
+          </div><pre>`;
+          res.changes.forEach(c => {
+             html += `<span class="diff-info">-- [${c.change_type}] ${c.entity_type} ${c.entity_name}</span>\n`;
+             html += `<span class="diff-add">${c.sql_up}</span>\n\n`;
+          });
+          html += `</pre>`;
+          out.innerHTML = html;
+      }
+  }
+
+  async function runDeploy() {
+      if (!currentPlan) return;
+      if (!confirm("Are you sure you want to apply these changes?")) return;
+      
+      const res = await api('/apply', 'POST', {
+          connection_string: getConn(),
+          plan: currentPlan,
+          dry_run: false
+      });
+      
+      if (res.applied) {
+          alert('Successfully deployed!');
+          runPlan(); // recheck
+      } else {
+          alert('Deploy returned false.');
+      }
+  }
+
+  async function runDrift() {
+      const dict = await ensureDictionary();
+      const out = document.getElementById('drift-out');
+      out.innerHTML = '<i>Inspecting database for out-of-band changes...</i>';
+      
+      const res = await api('/drift/dictionary', 'POST', {
+          connection_string: getConn(),
+          dictionary: dict,
+          engine: 'postgresql'
+      });
+      
+      if (!res.has_drift) {
+          out.innerHTML = `<div class="status-box ok">No drift detected. Database matches declarative truth.</div>`;
+      } else {
+          out.innerHTML = `<div class="status-box warn"><pre>${formatJSON(res.violations)}</pre></div>`;
+      }
+  }
+
+  async function runMaetel() {
+      const outContainer = document.getElementById('maetel-out');
+      const mc = document.getElementById('mermaid-container');
+      const mg = document.getElementById('mermaid-graph');
+      
+      mg.innerHTML = '<i>Boarding the Galaxy Express 999...</i>';
+      mc.style.display = 'block';
+
+      try {
+          const res = await api('/schema/maetel', 'POST', {
+              connection_string: getConn(),
+              format: 'mermaid',
+              schema_name: 'public'
+          });
+          
+          mg.innerHTML = res.content;
+          mg.removeAttribute('data-processed'); // force re-render
+          mermaid.init(undefined, mg);
+      } catch(e) {
+          mg.innerHTML = `<span class="diff-rm">Failed to generate ER diagram</span>`;
+      }
+  }
+</script>
+</body>
+</html>
