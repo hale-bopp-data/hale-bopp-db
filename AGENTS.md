@@ -14,7 +14,7 @@ tags: []
 |---|---|
 | Cosa | Python app — schema diff, deploy, drift detection per PostgreSQL |
 | Linguaggio | Python 3.11, SQL, Docker |
-| Branch | `feat→main` (NO develop) — PR target: `main` |
+| Branch | `feat→main` (NO develop) — PR target: `develop` |
 - **Container**: `halebopp-db`
 - **Tests**: 17
 
@@ -61,4 +61,4 @@ Dockerfile           # Container image
 
 ---
 > Context Sync Engine | Master: `easyway-wiki/templates/agents-master.md`
-> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-03-28T00:00:11Z
+> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-04-15T00:00:19Z
