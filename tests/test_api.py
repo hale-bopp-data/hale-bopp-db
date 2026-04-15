@@ -282,6 +282,160 @@ def test_compile_redis_with_patterns():
 
 
 # ---------------------------------------------------------------------------
+# Agentic Observer / Testudo guardrails
+# ---------------------------------------------------------------------------
+
+def test_apply_suggestion_add_column():
+    resp = client.post("/api/v1/agent/apply-suggestion", json={
+        "dictionary": MINIMAL_DICT,
+        "entity": "tenant",
+        "change": "add_column",
+        "field": {
+            "name": "priority",
+            "type": "integer",
+            "nullable": True,
+        },
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["applied"] is True
+    assert data["risk"] == "low"
+    columns = data["updated_dictionary"]["entities"][0]["columns"]
+    assert any(col["name"] == "priority" for col in columns)
+
+
+def test_apply_suggestion_drop_column_has_high_risk():
+    resp = client.post("/api/v1/agent/apply-suggestion", json={
+        "dictionary": MINIMAL_DICT,
+        "entity": "tenant",
+        "change": "drop_column",
+        "field": {
+            "name": "name",
+        },
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["risk"] == "high"
+    assert data["warnings"]
+    columns = data["updated_dictionary"]["entities"][0]["columns"]
+    assert all(col["name"] != "name" for col in columns)
+
+
+def test_apply_suggestion_rejects_unknown_entity():
+    resp = client.post("/api/v1/agent/apply-suggestion", json={
+        "dictionary": MINIMAL_DICT,
+        "entity": "orders",
+        "change": "add_column",
+        "field": {
+            "name": "priority",
+            "type": "integer",
+        },
+    })
+    assert resp.status_code == 404
+
+
+@patch("app.api.routes.introspect_schema")
+def test_pr_comment_payload_no_changes(mock_introspect):
+    from app.core.compile import DataDictionary
+    from app.core.plan import dictionary_to_desired
+
+    dd = DataDictionary.model_validate(MINIMAL_DICT)
+    mock_introspect.return_value = dictionary_to_desired(dd)
+
+    resp = client.post("/api/v1/git/pr-comment-payload", json={
+        "connection_string": "postgresql://fake:fake@localhost/fake",
+        "dictionary": MINIMAL_DICT,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "No schema changes detected" in data["markdown"]
+    assert data["risk_level"] == "low"
+
+
+@patch("app.api.routes.introspect_schema")
+def test_pr_comment_payload_warns_on_drop(mock_introspect):
+    mock_introspect.return_value = {
+        "tables": {
+            "platform.tenant": {
+                "columns": {
+                    "id": {"type": "BIGSERIAL", "nullable": False},
+                    "name": {"type": "VARCHAR(100)", "nullable": False},
+                    "created_at": {"type": "TIMESTAMPTZ", "nullable": False},
+                    "rogue": {"type": "TEXT", "nullable": True},
+                },
+                "indexes": {
+                    "ux_tenant_name": {"columns": ["name"], "unique": True},
+                },
+                "primary_key": ["id"],
+            }
+        },
+        "schemas": {},
+    }
+
+    resp = client.post("/api/v1/git/pr-comment-payload", json={
+        "connection_string": "postgresql://fake:fake@localhost/fake",
+        "dictionary": MINIMAL_DICT,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "Destructive changes" in data["markdown"]
+    assert "drop_column" in data["markdown"]
+    assert data["warnings"]
+
+
+def test_seed_generate_basic():
+    resp = client.post("/api/v1/seed/generate", json={
+        "dictionary": MINIMAL_DICT,
+        "rows_per_table": 3,
+        "locale": "it_IT",
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "platform.tenant" in data["seed_data"]
+    assert len(data["seed_data"]["platform.tenant"]) == 3
+    assert data["stats"]["table_count"] == 1
+
+
+def test_seed_generate_respects_fk_order():
+    dictionary = {
+        **MINIMAL_DICT,
+        "entities": [
+            {
+                "name": "tenant",
+                "schema": "platform",
+                "type": "DIM",
+                "pk": {"columns": ["id"]},
+                "columns": [
+                    {"name": "id", "type": "auto", "nullable": False},
+                    {"name": "tenant_id", "type": "string(50)", "nullable": False},
+                ],
+            },
+            {
+                "name": "user",
+                "schema": "platform",
+                "type": "DIM",
+                "pk": {"columns": ["id"]},
+                "columns": [
+                    {"name": "id", "type": "auto", "nullable": False},
+                    {"name": "tenant_id", "type": "string(50)", "nullable": False, "fk": "tenant.tenant_id"},
+                    {"name": "email", "type": "string(100)", "nullable": False},
+                ],
+            },
+        ],
+    }
+
+    resp = client.post("/api/v1/seed/generate", json={
+        "dictionary": dictionary,
+        "rows_per_table": 2,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    tenant_ids = [row["tenant_id"] for row in data["seed_data"]["platform.tenant"]]
+    user_rows = data["seed_data"]["platform.user"]
+    assert all(row["tenant_id"] in tenant_ids for row in user_rows)
+
+
+# ---------------------------------------------------------------------------
 # Validate
 # ---------------------------------------------------------------------------
 

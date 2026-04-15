@@ -1,97 +1,110 @@
 # hale-bopp-db
 
 [![CI](https://github.com/hale-bopp-data/hale-bopp-db/actions/workflows/ci.yml/badge.svg)](https://github.com/hale-bopp-data/hale-bopp-db/actions/workflows/ci.yml)
+[![Secrets Scan](https://github.com/hale-bopp-data/hale-bopp-db/actions/workflows/secrets-scan.yml/badge.svg)](https://github.com/hale-bopp-data/hale-bopp-db/actions/workflows/secrets-scan.yml)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.10+-green.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-green.svg)](https://python.org)
 
-Deterministic schema governance engine for PostgreSQL.
+Deterministic schema governance for PostgreSQL.
 
-Diff, deploy, and detect drift — no AI, no magic, just reliable mechanics.
+`hale-bopp-db` compares a desired schema or data dictionary with a live database, produces a reviewable plan, applies changes transactionally, and exposes the same engine through a CLI and a FastAPI API.
 
-## Architecture
+## What It Does
 
-```
-  ┌─────────────┐         ┌──────────────────┐         ┌──────────────┐
-  │ Desired     │         │   hale-bopp-db   │         │  PostgreSQL  │
-  │ Schema JSON │────────►│                  │────────►│  Database    │
-  └─────────────┘  diff   │  :8100           │ deploy  └──────────────┘
-                          │                  │◄────────
-                          │                  │  drift    ┌──────────────┐
-                          │                  │◄────────  │  Baseline    │
-                          └──────────────────┘  check   │  Snapshot    │
-                                                        └──────────────┘
-```
-
-## Features
-
-- **Schema Diff**: Compare desired schema against actual database, get a change list with risk assessment
-- **Schema Deploy**: Apply changes transactionally with automatic rollback on error
-- **Drift Detection**: Detect unauthorized schema modifications vs baseline
-- **Maetel**: ER diagram generator — Mermaid and structured JSON from live introspection
-- **CLI**: `halebopp diff`, `halebopp deploy`, `halebopp drift`, `halebopp snapshot`, `halebopp maetel`
-- **REST API**: FastAPI endpoints for integration with orchestration tools
-- **Risk Assessment**: Every change gets a risk level (low/medium/high/critical)
+- Diff desired schema vs live PostgreSQL
+- Build reviewable plans before execution
+- Apply schema changes transactionally
+- Detect drift against a baseline or data dictionary
+- Generate docs and ER diagrams from the dictionary
+- Expose the same capabilities via CLI and REST API
 
 ## Quick Start
 
 ```bash
-# Install
-pip install -e .
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[api,dev]"
 
-# Start the API server
-uvicorn app.main:app --host 0.0.0.0 --port 8100
-
-# Or use Docker Compose (includes PostgreSQL 16)
-docker compose up
+hb --help
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8100
 ```
 
-## API Endpoints
+Open:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/schema/diff` | Calculate schema differences + risk level |
-| `POST` | `/api/v1/schema/deploy` | Apply changes (supports dry-run) |
-| `POST` | `/api/v1/schema/maetel` | Generate ER diagram (Mermaid or JSON) |
-| `POST` | `/api/v1/drift/check` | Detect unauthorized schema drift |
-| `GET` | `/api/v1/health` | Service health check |
+- API health: `http://localhost:8100/api/v1/health`
+- Interactive console: `http://localhost:8100/console`
 
 ## CLI
 
-```bash
-halebopp diff --connection <conn> --desired schema.json
-halebopp deploy --connection <conn> --changes changes.json [--execute]
-halebopp drift --connection <conn> --baseline baseline.json
-halebopp snapshot --connection <conn> -o baseline.json
-halebopp maetel --connection <conn> --format mermaid -o er-diagram.md
-```
-
-> **Maetel** is named after the guide from *Galaxy Express 999* (銀河鉄道999) by Leiji Matsumoto — she knows every stop on the endless rail across the cosmos, just as this module knows every entity and relationship in your schema.
-
-## Testing
+Preferred command:
 
 ```bash
-pip install -r requirements.txt
-pytest tests/ -v
+hb --version
+hb diff --connection <conn> --desired schema.json
+hb plan --connection <conn> --dictionary data/db-data-dictionary.json
+hb apply --connection <conn> --plan halebopp-plan.json --execute
+hb drift --connection <conn> --dictionary data/db-data-dictionary.json
+hb docs generate --dictionary data/db-data-dictionary.json --output dist/docs
 ```
 
-17 tests covering diff engine, deploy logic, drift detection, CLI, and API endpoints.
+Backward-compatible alias:
 
-## Part of HALE-BOPP
-
-HALE-BOPP is an open-source ecosystem of deterministic data engines — the "muscles" that do the heavy lifting, no AI required.
-
-```
-  ┌──────────┐     event      ┌──────────┐     gate      ┌──────────┐
-  │ DB :8100 │ ─────────────► │ETL :3001 │ ◄──────────── │ARGOS:8200│
-  │ schema   │                │ pipeline │               │ policy   │
-  │ govern.  │                │ runner   │               │ gating   │
-  └──────────┘                └──────────┘               └──────────┘
+```bash
+halebopp --help
 ```
 
-- **hale-bopp-db** (this repo) — Schema governance for PostgreSQL
-- [hale-bopp-etl](https://github.com/hale-bopp-data/hale-bopp-etl) — Config-driven data orchestration
-- [hale-bopp-argos](https://github.com/hale-bopp-data/hale-bopp-argos) — Policy gating and quality checks
+## API Surface
+
+Representative endpoints:
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/health` | Health + package version |
+| `GET` | `/api/v1/dictionary` | Serve the default data dictionary |
+| `POST` | `/api/v1/plan` | Create a reviewable schema plan |
+| `POST` | `/api/v1/apply` | Apply a plan to a live database |
+| `POST` | `/api/v1/drift/dictionary` | Detect drift against the data dictionary |
+| `POST` | `/api/v1/compile` | Compile the dictionary into DDL/config artifacts |
+| `POST` | `/api/v1/validate` | Run structural and security validation checks |
+| `POST` | `/api/v1/schema/maetel` | Generate ER output from a live database |
+
+## Local Demo Vs Production
+
+`docker-compose.yml` is for local demo and development only. It spins up a disposable PostgreSQL instance with demo credentials so you can exercise the API and CLI quickly.
+
+Use it for:
+
+- local feature development
+- smoke testing the API
+- trying the console and dictionary workflows
+
+Do not treat it as a production deployment:
+
+- demo credentials are intentionally local-only
+- there is no hardened secret management
+- persistence and networking are tuned for convenience, not operations
+- production rollouts should use environment-specific configuration, managed secrets, backups, and your own deployment automation
+
+Copy [.env.example](.env.example) when preparing local settings and replace placeholder values before any serious environment.
+
+## CI And Release Signals
+
+- Public GitHub Actions workflows live in [`.github/workflows`](.github/workflows)
+- Azure Pipelines remains available for the internal EasyWay delivery flow
+- The README badge points to the canonical GitHub CI workflow so the repo state is discoverable at a glance
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for branch, testing, and PR expectations.
+
+## Part Of HALE-BOPP
+
+HALE-BOPP is an open-source ecosystem of deterministic data engines:
+
+- `hale-bopp-db` - schema governance for PostgreSQL
+- [hale-bopp-etl](https://github.com/hale-bopp-data/hale-bopp-etl) - config-driven data orchestration
+- [hale-bopp-argos](https://github.com/hale-bopp-data/hale-bopp-argos) - policy gating and quality checks
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+Apache License 2.0 - see [LICENSE](LICENSE).

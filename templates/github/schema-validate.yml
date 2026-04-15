@@ -1,0 +1,25 @@
+name: Hale-Bopp Schema Validation
+
+on:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Hale-Bopp DB
+        run: |
+          python -m pip install --upgrade pip
+          pip install hale-bopp-db
+
+      - name: Validate Schema Dictionary
+        run: |
+          hb validate --dictionary db-data-dictionary.json
+          hb plan --connection "${{ secrets.DB_CONN }}" --dictionary db-data-dictionary.json

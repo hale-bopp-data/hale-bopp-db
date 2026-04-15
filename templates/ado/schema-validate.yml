@@ -1,0 +1,28 @@
+trigger: none
+pr:
+  branches:
+    include:
+      - main
+      - develop
+      - feat/*
+      - fix/*
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.11"
+
+  - script: |
+      python -m pip install --upgrade pip
+      pip install hale-bopp-db
+    displayName: Install Hale-Bopp DB
+
+  - script: |
+      hb validate --dictionary db-data-dictionary.json
+      hb plan --connection "$(DB_CONN)" --dictionary db-data-dictionary.json
+    displayName: Validate schema dictionary
