@@ -7,14 +7,14 @@ tags: []
 
 > Motore deterministico per schema governance: diff, deploy, drift detection.
 > Guardrails e regole: vedi `.cursorrules` nello stesso repo.
-> Workspace map: vedi `factory.yml` nella root workspace (mappa completa repos, stack, deploy).
+> Workspace map: vedi `easyway/infra/factory-vcs.json` (SSoT repo map, branch strategy, deploy metadata).
 
 ## Identità
 | Campo | Valore |
 |---|---|
 | Cosa | Python app — schema diff, deploy, drift detection per PostgreSQL |
 | Linguaggio | Python 3.11, SQL, Docker |
-| Branch | `feat→main` (NO develop) — PR target: `develop` |
+| Branch | `feature/* -> develop -> main` (target da `factory-vcs.json`) |
 - **Container**: `halebopp-db`
 - **Tests**: 17
 
@@ -61,4 +61,4 @@ Dockerfile           # Container image
 
 ---
 > Context Sync Engine | Master: `easyway-wiki/templates/agents-master.md`
-> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-04-21T15:00:12Z
+> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-04-21T21:00:14Z
