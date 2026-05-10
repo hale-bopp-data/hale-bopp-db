@@ -7,14 +7,14 @@ tags: []
 
 > Motore deterministico per schema governance: diff, deploy, drift detection.
 > Guardrails e regole: vedi `.cursorrules` nello stesso repo.
-> Workspace map: vedi `factory.yml` nella root workspace (mappa completa repos, stack, deploy).
+> Workspace map: vedi `easyway/infra/factory-vcs.json` (SSoT repo map, branch strategy, deploy metadata).
 
 ## Identità
 | Campo | Valore |
 |---|---|
 | Cosa | Python app — schema diff, deploy, drift detection per PostgreSQL |
 | Linguaggio | Python 3.11, SQL, Docker |
-| Branch | `feat→main` (NO develop) — PR target: `develop` |
+| Branch | `feature/* -> develop -> main` (target da `factory-vcs.json`) |
 - **Container**: `halebopp-db`
 - **Tests**: 17
 
@@ -56,9 +56,9 @@ Dockerfile           # Container image
 | PR flusso standard | → vedi `easyway-wiki/guides/polyrepo-git-workflow.md` |
 | PAT/secrets/gateway | → vedi `easyway-wiki/guides/connection-registry.md` |
 | Branch strategy | → vedi `easyway-wiki/guides/branch-strategy-config.md` |
-| Tool unico | `bash /c/old/easyway/agents/scripts/connections/ado.sh` — MAI curl inline, MAI az login |
+| Tool unico | `bash /c/EW/easyway/agents/scripts/connections/ado.sh` — MAI curl inline, MAI az login |
 
 
 ---
 > Context Sync Engine | Master: `easyway-wiki/templates/agents-master.md`
-> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-04-15T00:00:19Z
+> Override: `easyway-wiki/templates/repo-overrides.yml` | Sync: 2026-04-21T21:00:14Z
