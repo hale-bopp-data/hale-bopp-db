@@ -1,5 +1,7 @@
 # DB-HALE-BOPP: Release Management & Flyway Replacement
 
+> ⚠️ **NOTA** — Questo doc cita `sqlglot` come libreria di parsing SQL. sqlglot non è una dipendenza né è importato nel codice. Vedi DB_AGNOSTIC_DESIGN.md banner e #2466.
+
 ## Il Contesto Storico (Perché Flyway ha fallito)
 Come documentato nella Wiki di EasyWayDataPortal (`why-not-flyway.md`), l'uso di engine di migrazione tradizionali come **Flyway** (o Liquibase) su database complessi come SQL Server si è rivelato un anti-pattern.
 I motivi principali dell'abbandono di Flyway sono stati:

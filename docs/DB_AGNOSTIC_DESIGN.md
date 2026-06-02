@@ -1,5 +1,11 @@
 # DB-Agnostic Design: Rendere i DB Tradizionali "Cool" Ancora
 
+> ⚠️ **DOCUMENTO ASPIRAZIONALE** — Non descrive l'implementazione attuale.
+> **sqlglot** non è una dipendenza né è importato nel codice.
+> **Snowflake** NON è supportato — `app/core/compile.py:1040` restituisce
+> `ValueError("not yet supported")`. Engine reali: PostgreSQL, MSSQL, Oracle.
+> Vedi #2466 per il piano di allineamento doc↔codice.
+
 DB-HALE-BOPP nasce con una visione radicale: **normalizzare il divario cognitivo e tecnologico tra i Database Relazionali tradizionali (es. PostgreSQL, Oracle, SQL Server) e i Data Warehouse Cloud Computing (es. Snowflake, BigQuery).**
 
 ## Il Problema: La Frammentazione della Governance
