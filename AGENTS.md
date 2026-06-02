@@ -13,16 +13,16 @@ tags: []
 | Campo | Valore |
 |---|---|
 | Cosa | Python app — schema diff, deploy, drift detection per PostgreSQL |
-| Linguaggio | Python 3.11, SQL, Docker |
+| Linguaggio | Python 3.10+, SQL, Docker |
 | Branch | `feature/* -> develop -> main` (target da `factory-vcs.json`) |
 - **Container**: `halebopp-db`
-- **Tests**: 17
+- **Tests**: 334
 
 ## Comandi rapidi
 ```bash
 ewctl commit
 # Run tests
-pytest app/tests/
+pytest tests/
 # Docker build + run
 docker compose up -d
 # Schema diff
