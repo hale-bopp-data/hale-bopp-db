@@ -10,3 +10,5 @@ build/
 .mypy_cache/
 *.log
 .mcp.json
+# Iron Dome ephemeral hook backups (ew-git-hooks-install PBI #2457)
+.iron-dome-backup/
